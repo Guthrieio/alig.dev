@@ -1,0 +1,1685 @@
+# Angular 19 Project Implementation - Part 1 of 4
+
+## 1. Project Configuration and Models
+
+### app-config.model.ts
+```typescript
+export interface PageConfig {
+  page: string;
+  route: string;
+  iconName: string;
+  title?: string;
+  permissions?: string[];
+  canActivate?: string[];
+  children?: PageConfigChild[];
+  loadChildren?: boolean;
+  data?: { [key: string]: any };
+}
+
+export interface PageConfigChild {
+  page: string;
+  route: string;
+  iconName?: string;
+  title?: string;
+  component?: string;
+  canActivate?: string[];
+  children?: PageConfigChild[];
+  data?: { [key: string]: any };
+}
+
+export interface AppConfig {
+  siteName: string;
+  enableAuthentication: boolean; // Global toggle for authentication
+  pages: PageConfig[];
+}
+```
+
+### app-config.ts
+```typescript
+import { AppConfig } from './app-config.model';
+
+export const APP_CONFIG: AppConfig = {
+  siteName: 'Angular 19 App',
+  enableAuthentication: true, // Set to false to disable authentication globally
+  pages: [
+    { 
+      page: 'home', 
+      route: '/', 
+      iconName: 'home', 
+      title: 'Home' 
+    },
+    { 
+      page: 'activities', 
+      route: '/activities', 
+      iconName: 'assignment', 
+      title: 'Activities',
+      canActivate: ['AuthGuard'],
+      children: [
+        {
+          page: 'activityList',
+          route: '',
+          title: 'All Activities'
+        },
+        {
+          page: 'activityDetail',
+          route: ':id',
+          title: 'Activity Detail'
+        },
+        {
+          page: 'activityCreate',
+          route: 'create',
+          title: 'Create Activity',
+          canActivate: ['AdminGuard']
+        }
+      ]
+    },
+    {
+      page: 'settings',
+      route: '/settings',
+      iconName: 'settings',
+      title: 'Settings',
+      canActivate: ['AuthGuard'],
+      children: [
+        {
+          page: 'profile',
+          route: 'profile',
+          title: 'User Profile'
+        },
+        {
+          page: 'security',
+          route: 'security',
+          title: 'Security Settings',
+          canActivate: ['AdminGuard']
+        }
+      ]
+    },
+    {
+      page: 'admin',
+      route: '/admin',
+      iconName: 'admin_panel_settings',
+      title: 'Admin Dashboard',
+      canActivate: ['AdminGuard'],
+      children: [
+        {
+          page: 'users',
+          route: 'users',
+          title: 'User Management'
+        },
+        {
+          page: 'settings',
+          route: 'settings',
+          title: 'System Settings'
+        }
+      ]
+    },
+    {
+      page: 'system',
+      route: '/system',
+      iconName: 'engineering',
+      title: 'System',
+      canActivate: ['SiteAdminGuard'],
+      children: [
+        {
+          page: 'configuration',
+          route: 'config',
+          title: 'Global Configuration'
+        },
+        {
+          page: 'logs',
+          route: 'logs',
+          title: 'System Logs'
+        }
+      ]
+    }
+  ]
+};
+```
+
+### user.model.ts
+```typescript
+export interface User {
+  id: string;
+  networkID: string;
+  role: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+}
+
+export interface LoginRequest {
+  networkID: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  token: string;
+}
+```
+
+## 2. Styles
+
+### _tokens.scss
+```scss
+// src/styles/_tokens.scss
+
+// Colors
+$color-primary: var(--mq-color-primary);
+$color-secondary: var(--mq-color-secondary);
+$color-background: var(--mq-color-background);
+$color-surface: var(--mq-color-surface);
+$color-text: var(--mq-color-text-primary);
+$color-text-secondary: var(--mq-color-text-secondary);
+$color-error: var(--mq-color-error);
+$color-border: var(--mq-color-border);
+
+// Spacing
+$space-xs: var(--mq-space-xs);
+$space-s: var(--mq-space-s);
+$space-m: var(--mq-space-m);
+$space-l: var(--mq-space-l);
+$space-xl: var(--mq-space-xl);
+$space-2xl: var(--mq-space-2xl);
+
+// Typography
+$font-family: var(--mq-font-family-primary);
+$font-size-s: var(--mq-font-size-s);
+$font-size-m: var(--mq-font-size-m);
+$font-size-l: var(--mq-font-size-l);
+$font-weight-regular: var(--mq-font-weight-regular);
+$font-weight-medium: var(--mq-font-weight-medium);
+$font-weight-bold: var(--mq-font-weight-bold);
+
+// Borders & Radius
+$border-radius-s: var(--mq-border-radius-s);
+$border-radius-m: var(--mq-border-radius-m);
+$border-width: var(--mq-border-width-normal);
+
+// Effects
+$shadow-s: var(--mq-shadow-s);
+$shadow-m: var(--mq-shadow-m);
+
+// Layout
+$header-height: var(--mq-header-height, 64px);
+$sidebar-width: var(--mq-sidebar-width, 250px);
+```
+
+### styles.scss
+```scss
+@use 'tokens' as tokens;
+
+html, body {
+  font-family: tokens.$font-family;
+  font-size: tokens.$font-size-m;
+  color: tokens.$color-text;
+  background-color: tokens.$color-background;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  margin-bottom: tokens.$space-m;
+  font-weight: tokens.$font-weight-bold;
+}
+
+a {
+  color: tokens.$color-primary;
+  text-decoration: none;
+  
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Basic utility classes
+.mt-s { margin-top: tokens.$space-s; }
+.mt-m { margin-top: tokens.$space-m; }
+.mt-l { margin-top: tokens.$space-l; }
+
+.mb-s { margin-bottom: tokens.$space-s; }
+.mb-m { margin-bottom: tokens.$space-m; }
+.mb-l { margin-bottom: tokens.$space-l; }
+
+// Custom scrollbar
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+}
+```
+
+### app.component.scss
+```scss
+@use 'src/styles/tokens' as tokens;
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+}
+
+.app-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.app-sidebar {
+  width: tokens.$sidebar-width;
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: tokens.$space-m;
+}
+```
+
+# Angular 19 Project Implementation - Part 2 of 4
+
+## 3. Core Services
+
+### config.service.ts
+```typescript
+import { Injectable, signal, computed } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { AppConfig, PageConfig } from '../../config/app-config.model';
+import { APP_CONFIG } from '../../config/app-config';
+import { toObservable } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ConfigService {
+  private configSignal = signal<AppConfig>(APP_CONFIG);
+  
+  // Computed signals for derived state
+  public pages = computed(() => this.configSignal().pages);
+  public siteName = computed(() => this.configSignal().siteName);
+  public authEnabled = computed(() => this.configSignal().enableAuthentication);
+  
+  // Legacy Observable API for compatibility
+  public config$ = toObservable(this.configSignal);
+
+  constructor(private http: HttpClient) {}
+
+  async loadConfig(): Promise<void> {
+    try {
+      // Use firstValueFrom instead of toPromise()
+      const config = await firstValueFrom(
+        this.http.get<AppConfig>('assets/config/app-config.json')
+      );
+      this.configSignal.set(config);
+    } catch (error) {
+      console.error('Failed to load configuration', error);
+      // Keep the default config
+    }
+  }
+
+  getConfig(): AppConfig {
+    return this.configSignal();
+  }
+
+  getPages(): PageConfig[] {
+    return this.pages();
+  }
+  
+  isAuthenticationEnabled(): boolean {
+    return this.authEnabled();
+  }
+}
+```
+
+### auth.service.ts
+```typescript
+import { Injectable, signal, computed } from '@angular/core';
+import { Router } from '@angular/router';
+import { User, AuthState, LoginRequest, LoginResponse } from '../models/user.model';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthService {
+  // Define valid roles and passwords
+  private readonly ROLE_PASSWORDS = {
+    'user': 'user',
+    'admin': 'admin',
+    'siteadmin': 'siteadmin'
+  };
+
+  // Initial state
+  private authStateSignal = signal<AuthState>({
+    user: null,
+    token: null,
+    isAuthenticated: false
+  });
+
+  // Computed signals for derived state
+  public user = computed(() => this.authStateSignal().user);
+  public isAuthenticated = computed(() => this.authStateSignal().isAuthenticated);
+  public userRole = computed(() => this.authStateSignal().user?.role || null);
+
+  constructor(private router: Router) {
+    // Load auth state from local storage on initialization
+    this.loadAuthState();
+  }
+
+  /**
+   * Mock login functionality with specific role passwords
+   */
+  login(credentials: LoginRequest): Promise<LoginResponse> {
+    return new Promise((resolve, reject) => {
+      // Simulate API call delay
+      setTimeout(() => {
+        // Check if password matches any of the role-specific passwords
+        const matchingRole = Object.entries(this.ROLE_PASSWORDS)
+          .find(([role, password]) => password === credentials.password);
+        
+        if (matchingRole) {
+          const [role, _] = matchingRole;
+          
+          const user: User = {
+            id: this.generateUserId(),
+            networkID: credentials.networkID,
+            role: role
+          };
+          
+          // Generate mock token
+          const token = `mock-jwt-token-${Date.now()}-${user.id}-${role}`;
+          
+          // Update auth state
+          this.authStateSignal.set({
+            user,
+            token,
+            isAuthenticated: true
+          });
+          
+          // Save to local storage
+          this.saveAuthState();
+          
+          resolve({ user, token });
+        } else {
+          reject(new Error('Invalid credentials. Please use one of the role-specific passwords.'));
+        }
+      }, 800); // Simulate network delay
+    });
+  }
+
+  /**
+   * Logout the current user
+   */
+  logout(): void {
+    // Clear auth state
+    this.authStateSignal.set({
+      user: null,
+      token: null,
+      isAuthenticated: false
+    });
+    
+    // Clear from local storage
+    localStorage.removeItem('auth_state');
+    
+    // Redirect to login
+    this.router.navigate(['/login']);
+  }
+
+  /**
+   * Get available roles for display or documentation
+   */
+  getAvailableRoles(): string[] {
+    return Object.keys(this.ROLE_PASSWORDS);
+  }
+
+  /**
+   * Save authentication state to local storage
+   */
+  private saveAuthState(): void {
+    localStorage.setItem('auth_state', JSON.stringify(this.authStateSignal()));
+  }
+
+  /**
+   * Load authentication state from local storage
+   */
+  private loadAuthState(): void {
+    const storedState = localStorage.getItem('auth_state');
+    if (storedState) {
+      try {
+        const parsedState = JSON.parse(storedState);
+        this.authStateSignal.set(parsedState);
+      } catch (error) {
+        console.error('Failed to parse stored auth state', error);
+        // If parsing fails, clear the storage
+        localStorage.removeItem('auth_state');
+      }
+    }
+  }
+
+  /**
+   * Check if user has a specific role
+   */
+  hasRole(role: string): boolean {
+    return this.userRole() === role;
+  }
+
+  /**
+   * Get the current authentication token
+   */
+  getToken(): string | null {
+    return this.authStateSignal().token;
+  }
+
+  /**
+   * Generate a mock user ID
+   */
+  private generateUserId(): string {
+    return Math.floor(Math.random() * 10000).toString();
+  }
+}
+```
+
+## 4. Guards and Interceptors
+
+### auth.guard.ts
+```typescript
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+import { ConfigService } from '../services/config.service';
+
+export const authGuard = () => {
+  const authService = inject(AuthService);
+  const configService = inject(ConfigService);
+  const router = inject(Router);
+  
+  // Skip authentication if disabled globally
+  if (!configService.isAuthenticationEnabled()) {
+    return true;
+  }
+  
+  if (authService.isAuthenticated()) {
+    return true;
+  }
+  
+  // Store the attempted URL for redirecting
+  const currentUrl = router.url !== '/login' ? router.url : '/';
+  return router.createUrlTree(['/login'], { queryParams: { returnUrl: currentUrl } });
+};
+```
+
+### admin.guard.ts
+```typescript
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+import { ConfigService } from '../services/config.service';
+
+export const adminGuard = () => {
+  const authService = inject(AuthService);
+  const configService = inject(ConfigService);
+  const router = inject(Router);
+  
+  // Skip authentication if disabled globally
+  if (!configService.isAuthenticationEnabled()) {
+    return true;
+  }
+  
+  // Allow access for admin and siteadmin roles
+  const adminRoles = ['admin', 'siteadmin'];
+  if (authService.isAuthenticated() && adminRoles.includes(authService.userRole() || '')) {
+    return true;
+  }
+  
+  // If user is authenticated but not admin/siteadmin, go to unauthorized page
+  if (authService.isAuthenticated()) {
+    return router.createUrlTree(['/unauthorized']);
+  }
+  
+  // Otherwise go to login
+  return router.createUrlTree(['/login']);
+};
+```
+
+### site-admin.guard.ts
+```typescript
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+import { ConfigService } from '../services/config.service';
+
+export const siteAdminGuard = () => {
+  const authService = inject(AuthService);
+  const configService = inject(ConfigService);
+  const router = inject(Router);
+  
+  // Skip authentication if disabled globally
+  if (!configService.isAuthenticationEnabled()) {
+    return true;
+  }
+  
+  // Only allow access for siteadmin role
+  if (authService.isAuthenticated() && authService.hasRole('siteadmin')) {
+    return true;
+  }
+  
+  // If user is authenticated but not siteadmin, go to unauthorized page
+  if (authService.isAuthenticated()) {
+    return router.createUrlTree(['/unauthorized']);
+  }
+  
+  // Otherwise go to login
+  return router.createUrlTree(['/login']);
+};
+```
+
+### auth.interceptor.ts
+```typescript
+import { HttpInterceptorFn, HttpRequest, HttpHandlerFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { AuthService } from '../services/auth.service';
+
+export const authInterceptor: HttpInterceptorFn = (
+  req: HttpRequest<unknown>, 
+  next: HttpHandlerFn
+) => {
+  const authService = inject(AuthService);
+  const token = authService.getToken();
+  
+  if (token) {
+    // Clone the request and add the token
+    const authReq = req.clone({
+      setHeaders: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    return next(authReq);
+  }
+  
+  return next(req);
+};
+```
+
+# Angular 19 Project Implementation - Part 3 of 4
+
+## 5. Core Components
+
+### header.component.ts
+```typescript
+import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { NgClass } from '@angular/common';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
+import { User } from '../../models/user.model';
+
+@Component({
+  selector: 'app-header',
+  standalone: true,
+  imports: [MatToolbarModule, MatIconModule, MatButtonModule, MatMenuModule, NgClass],
+  template: `
+    <mat-toolbar color="primary" class="header">
+      <div class="brand">
+        <span class="site-name">{{ siteName }}</span>
+      </div>
+      
+      <div class="header-actions">
+        @if (user) {
+          <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-button">
+            <mat-icon>account_circle</mat-icon>
+            <span class="username">
+              {{ user.networkID }}
+              <span class="role-badge" [ngClass]="'role-' + user.role">{{ user.role }}</span>
+            </span>
+          </button>
+          <mat-menu #userMenu="matMenu">
+            <button mat-menu-item (click)="logout.emit()">
+              <mat-icon>exit_to_app</mat-icon>
+              <span>Logout</span>
+            </button>
+          </mat-menu>
+        }
+      </div>
+    </mat-toolbar>
+  `,
+  styleUrls: ['./header.component.scss']
+})
+export class HeaderComponent {
+  @Input() siteName: string = 'Angular App';
+  @Input() user: User | null = null;
+  @Output() logout = new EventEmitter<void>();
+}
+```
+
+### header.component.scss
+```scss
+@use 'src/styles/tokens' as tokens;
+
+.header {
+  height: tokens.$header-height;
+  padding: 0 tokens.$space-m;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: tokens.$shadow-m;
+  z-index: 1000;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+}
+
+.site-name {
+  font-size: tokens.$font-size-l;
+  font-weight: tokens.$font-weight-medium;
+}
+
+.header-actions {
+  display: flex;
+  gap: tokens.$space-s;
+}
+
+.user-menu-button {
+  display: flex;
+  align-items: center;
+}
+
+.username {
+  margin-left: tokens.$space-s;
+}
+
+// Role badge styles
+.role-badge {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.role-user {
+  background-color: rgba(0, 200, 83, 0.7);
+}
+
+.role-admin {
+  background-color: rgba(255, 165, 0, 0.7);
+}
+
+.role-siteadmin {
+  background-color: rgba(255, 61, 0, 0.7);
+}
+```
+
+### sidebar.component.ts
+```typescript
+import { Component, signal } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
+import { MatRippleModule } from '@angular/material/core';
+import { ConfigService } from '../../services/config.service';
+import { PageConfig } from '../../../config/app-config.model';
+
+@Component({
+  selector: 'app-sidebar',
+  standalone: true,
+  imports: [RouterLink, RouterLinkActive, MatIconModule, MatRippleModule],
+  template: `
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="user-info">
+          <mat-icon>person</mat-icon>
+          <span>User Name</span>
+        </div>
+      </div>
+      
+      <div class="nav-items">
+        @for (item of pages(); track item.page) {
+          <a class="nav-item" 
+             [routerLink]="item.route" 
+             routerLinkActive="active" 
+             [routerLinkActiveOptions]="{exact: item.route === '/'}"
+             matRipple
+             (click)="item.children && toggleExpand(item.page)">
+            <mat-icon>{{item.iconName}}</mat-icon>
+            <span>{{item.title || item.page}}</span>
+            @if (item.children) {
+              <mat-icon class="expand-icon">
+                {{expandedItem() === item.page ? 'expand_less' : 'expand_more'}}
+              </mat-icon>
+            }
+          </a>
+          
+          @if (item.children && expandedItem() === item.page) {
+            <div class="subnav">
+              @for (child of item.children; track child.page) {
+                <a class="subnav-item" 
+                   [routerLink]="[item.route, child.route]"
+                   routerLinkActive="active"
+                   matRipple>
+                  @if (child.iconName) {
+                    <mat-icon>{{child.iconName}}</mat-icon>
+                  }
+                  <span>{{child.title || child.page}}</span>
+                </a>
+              }
+            </div>
+          }
+        }
+      </div>
+    </div>
+  `,
+  styleUrls: ['./sidebar.component.scss']
+})
+export class SidebarComponent {
+  pages = this.configService.pages;
+  expandedItem = signal<string | null>(null);
+  
+  constructor(private configService: ConfigService) {}
+  
+  toggleExpand(pageName: string): void {
+    this.expandedItem.update(current => 
+      current === pageName ? null : pageName
+    );
+  }
+}
+```
+
+### sidebar.component.scss
+```scss
+@use 'src/styles/tokens' as tokens;
+
+.sidebar {
+  height: 100%;
+  background-color: tokens.$color-background;
+  display: flex;
+  flex-direction: column;
+  border-right: tokens.$border-width solid tokens.$color-border;
+}
+
+.sidebar-header {
+  padding: tokens.$space-m;
+  border-bottom: tokens.$border-width solid tokens.$color-border;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: tokens.$space-s;
+}
+
+.nav-items {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: tokens.$space-s tokens.$space-m;
+  text-decoration: none;
+  color: tokens.$color-text;
+  gap: tokens.$space-m;
+  
+  &.active {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: tokens.$color-primary;
+  }
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+}
+
+.expand-icon {
+  margin-left: auto;
+}
+
+.subnav {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.subnav-item {
+  display: flex;
+  align-items: center;
+  padding: tokens.$space-xs tokens.$space-m tokens.$space-xs tokens.$space-2xl;
+  text-decoration: none;
+  color: tokens.$color-text;
+  gap: tokens.$space-s;
+  
+  &.active {
+    color: tokens.$color-primary;
+  }
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+}
+```
+
+## 6. Authentication Components
+
+### login.component.ts
+```typescript
+import { Component, signal } from '@angular/core';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router, ActivatedRoute } from '@angular/router';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { AuthService } from '../../../core/services/auth.service';
+
+@Component({
+  selector: 'app-login',
+  standalone: true,
+  imports: [
+    ReactiveFormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressBarModule
+  ],
+  template: `
+    <div class="login-container">
+      <mat-card class="login-card">
+        <mat-card-header>
+          <mat-card-title>Sign In</mat-card-title>
+        </mat-card-header>
+        
+        @if (isLoading()) {
+          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        }
+        
+        <mat-card-content>
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+            @if (errorMessage()) {
+              <div class="error-message">
+                {{ errorMessage() }}
+              </div>
+            }
+            
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Network ID</mat-label>
+              <input matInput formControlName="networkID" placeholder="Enter your network ID">
+              <mat-icon matSuffix>person</mat-icon>
+              @if (loginForm.get('networkID')?.hasError('required') && loginForm.get('networkID')?.touched) {
+                <mat-error>Network ID is required</mat-error>
+              }
+            </mat-form-field>
+            
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Password</mat-label>
+              <input 
+                matInput 
+                [type]="hidePassword() ? 'password' : 'text'" 
+                formControlName="password" 
+                placeholder="Enter your password"
+              >
+              <button 
+                type="button" 
+                mat-icon-button 
+                matSuffix 
+                (click)="togglePasswordVisibility()"
+              >
+                <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              @if (loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched) {
+                <mat-error>Password is required</mat-error>
+              }
+            </mat-form-field>
+            
+            <div class="form-footer">
+              <button 
+                mat-raised-button 
+                color="primary" 
+                type="submit" 
+                [disabled]="loginForm.invalid || isLoading()"
+                class="full-width"
+              >
+                Sign In
+              </button>
+            </div>
+            
+            <div class="demo-accounts">
+              <h4>Login Information:</h4>
+              <div class="account-info">
+                <p>Enter any Network ID with one of these passwords:</p>
+                <p><strong>Standard User:</strong> "user"</p>
+                <p><strong>Admin:</strong> "admin"</p>
+                <p><strong>Site Admin:</strong> "siteadmin"</p>
+                <p class="note">Any other password will result in login failure.</p>
+              </div>
+            </div>
+          </form>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  `,
+  styleUrls: ['./login.component.scss']
+})
+export class LoginComponent {
+  loginForm: FormGroup;
+  isLoading = signal(false);
+  errorMessage = signal('');
+  hidePassword = signal(true);
+  returnUrl: string = '/';
+  
+  constructor(
+    private fb: FormBuilder,
+    private authService: AuthService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {
+    this.loginForm = this.fb.group({
+      networkID: ['', Validators.required],
+      password: ['', Validators.required]
+    });
+    
+    // Get return url from route parameters or default to '/'
+    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
+  }
+  
+  togglePasswordVisibility(): void {
+    this.hidePassword.update(value => !value);
+  }
+  
+  onSubmit(): void {
+    if (this.loginForm.invalid) {
+      return;
+    }
+    
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+    
+    const credentials = this.loginForm.value;
+    
+    this.authService.login(credentials)
+      .then(() => {
+        this.router.navigateByUrl(this.returnUrl);
+      })
+      .catch(error => {
+        this.errorMessage.set(error.message || 'Login failed. Please check your credentials.');
+      })
+      .finally(() => {
+        this.isLoading.set(false);
+      });
+  }
+}
+```
+
+### login.component.scss
+```scss
+@use 'src/styles/tokens' as tokens;
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: tokens.$color-background;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400
+
+# Angular 19 Project Implementation - Part 3 of 4 (continued)
+
+### login.component.scss (continued)
+```scss
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  margin: tokens.$space-l;
+  border-radius: tokens.$border-radius-m;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.form-footer {
+  margin-top: tokens.$space-l;
+}
+
+.error-message {
+  background-color: rgba(tokens.$color-error, 0.1);
+  color: tokens.$color-error;
+  padding: tokens.$space-s;
+  margin-bottom: tokens.$space-m;
+  border-radius: tokens.$border-radius-s;
+}
+
+.demo-accounts {
+  margin-top: tokens.$space-l;
+  padding-top: tokens.$space-m;
+  border-top: tokens.$border-width solid tokens.$color-border;
+}
+
+.account-info {
+  background-color: rgba(tokens.$color-primary, 0.1);
+  padding: tokens.$space-s;
+  border-radius: tokens.$border-radius-s;
+  
+  p {
+    margin: tokens.$space-xs 0;
+  }
+}
+
+.note {
+  font-style: italic;
+  color: tokens.$color-error;
+  margin-top: tokens.$space-xs;
+}
+```
+
+### unauthorized.component.ts
+```typescript
+import { Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+
+@Component({
+  selector: 'app-unauthorized',
+  standalone: true,
+  imports: [RouterLink, MatButtonModule, MatIconModule],
+  template: `
+    <div class="unauthorized-container">
+      <div class="unauthorized-content">
+        <mat-icon class="lock-icon">lock</mat-icon>
+        <h1>Access Denied</h1>
+        <p>Sorry, you don't have permission to access this page.</p>
+        <div class="actions">
+          <button mat-raised-button color="primary" routerLink="/">
+            Go to Home
+          </button>
+        </div>
+      </div>
+    </div>
+  `,
+  styleUrls: ['./unauthorized.component.scss']
+})
+export class UnauthorizedComponent {}
+```
+
+### unauthorized.component.scss
+```scss
+@use 'src/styles/tokens' as tokens;
+
+.unauthorized-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: tokens.$color-background;
+}
+
+.unauthorized-content {
+  text-align: center;
+  padding: tokens.$space-l;
+  background-color: tokens.$color-surface;
+  border-radius: tokens.$border-radius-m;
+  box-shadow: tokens.$shadow-m;
+  max-width: 500px;
+}
+
+.lock-icon {
+  font-size: 4rem;
+  height: 4rem;
+  width: 4rem;
+  color: tokens.$color-error;
+  margin-bottom: tokens.$space-m;
+}
+
+h1 {
+  color: tokens.$color-text;
+  margin-bottom: tokens.$space-m;
+}
+
+.actions {
+  margin-top: tokens.$space-l;
+}
+```
+
+# Angular 19 Project Implementation - Part 4 of 4
+
+## 7. Main Application Components
+
+### app.component.ts
+```typescript
+import { Component } from '@angular/core';
+import { RouterOutlet, Router } from '@angular/router';
+import { HeaderComponent } from './core/components/header/header.component';
+import { SidebarComponent } from './core/components/sidebar/sidebar.component';
+import { ConfigService } from './core/services/config.service';
+import { AuthService } from './core/services/auth.service';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [RouterOutlet, HeaderComponent, SidebarComponent],
+  template: `
+    @if (shouldShowMainLayout()) {
+      <div class="app-container">
+        <!-- Fixed header -->
+        <app-header 
+          [siteName]="siteName()" 
+          [user]="authService.user()" 
+          (logout)="onLogout()"
+        ></app-header>
+        
+        <div class="app-content">
+          <!-- Fixed sidebar -->
+          <app-sidebar class="app-sidebar"></app-sidebar>
+          
+          <!-- Scrollable main content -->
+          <main class="main-content">
+            <router-outlet></router-outlet>
+          </main>
+        </div>
+      </div>
+    } @else {
+      <!-- Login/Auth routes don't show the app layout -->
+      <router-outlet></router-outlet>
+    }
+  `,
+  styleUrls: ['./app.component.scss']
+})
+export class AppComponent {
+  siteName = this.configService.siteName;
+  
+  constructor(
+    private configService: ConfigService,
+    public authService: AuthService,
+    private router: Router
+  ) {}
+  
+  shouldShowMainLayout(): boolean {
+    const currentUrl = this.router.url;
+    // Don't show layout for login or unauthorized routes
+    if (currentUrl.includes('/login') || currentUrl.includes('/unauthorized')) {
+      return false;
+    }
+    
+    // Show layout if auth is disabled OR user is authenticated
+    return !this.configService.isAuthenticationEnabled() || 
+           this.authService.isAuthenticated();
+  }
+  
+  onLogout(): void {
+    this.authService.logout();
+  }
+}
+```
+
+### app.routes.ts
+```typescript
+import { Routes } from '@angular/router';
+import { APP_CONFIG } from './config/app-config';
+import { inject } from '@angular/core';
+
+// Import guard factory functions
+import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
+import { siteAdminGuard } from './core/guards/site-admin.guard';
+
+// Map guard names to guard functions
+const guardMap: { [key: string]: any } = {
+  'AuthGuard': authGuard,
+  'AdminGuard': adminGuard,
+  'SiteAdminGuard': siteAdminGuard
+};
+
+// Function to resolve guards from names
+function resolveGuards(guardNames: string[] | undefined): any[] {
+  if (!guardNames) return [];
+  return guardNames.map(name => guardMap[name]);
+}
+
+// Function to process child routes recursively
+function processChildRoutes(parentPath: string, children: any[] | undefined): Routes {
+  if (!children) return [];
+  
+  return children.map(child => {
+    const route: any = {
+      path: child.route,
+      // For standalone components
+      loadComponent: () => import(`./features/${parentPath}/${child.page}/${child.page}.component`)
+        .then(m => {
+          const componentName = child.component || 
+            `${child.page.charAt(0).toUpperCase() + child.page.slice(1)}Component`;
+          return m[componentName];
+        })
+    };
+    
+    if (child.canActivate && child.canActivate.length) {
+      route.canActivate = resolveGuards(child.canActivate);
+    }
+    
+    if (child.children && child.children.length) {
+      route.children = processChildRoutes(`${parentPath}/${child.page}`, child.children);
+    }
+    
+    if (child.data) {
+      route.data = child.data;
+    }
+    
+    return route;
+  });
+}
+
+// Auth routes - add these manually since they're not part of the configurable pages
+const authRoutes: Routes = [
+  {
+    path: 'login',
+    loadComponent: () => import('./features/auth/login/login.component')
+      .then(m => m.LoginComponent)
+  },
+  {
+    path: 'unauthorized',
+    loadComponent: () => import('./features/auth/unauthorized/unauthorized.component')
+      .then(m => m.UnauthorizedComponent)
+  }
+];
+
+// Generate routes from config
+const configRoutes: Routes = APP_CONFIG.pages.map(page => {
+  const path = page.route === '/' ? '' : page.route.replace(/^\//, '');
+  const pagePath = page.page; // For the import path
+  
+  if (page.loadChildren) {
+    // Lazy-loaded routes
+    const route: any = {
+      path,
+      loadChildren: () => import(`./features/${pagePath}/${pagePath}.routes`)
+        .then(m => m.routes)
+    };
+    
+    if (page.canActivate && page.canActivate.length) {
+      route.canActivate = resolveGuards(page.canActivate);
+    }
+    
+    if (page.data) {
+      route.data = page.data;
+    }
+    
+    return route;
+  } else {
+    // Eagerly loaded component with possible children
+    const route: any = {
+      path,
+      loadComponent: () => import(`./features/${pagePath}/${pagePath}.component`)
+        .then(m => m[`${pagePath.charAt(0).toUpperCase() + pagePath.slice(1)}Component`])
+    };
+    
+    if (page.canActivate && page.canActivate.length) {
+      route.canActivate = resolveGuards(page.canActivate);
+    }
+    
+    if (page.children && page.children.length) {
+      route.children = processChildRoutes(pagePath, page.children);
+    }
+    
+    if (page.data) {
+      route.data = page.data;
+    }
+    
+    return route;
+  }
+});
+
+// Combine auth routes with config routes
+export const routes: Routes = [
+  ...authRoutes,
+  ...configRoutes,
+  // Add a fallback route
+  {
+    path: '**',
+    redirectTo: ''
+  }
+];
+```
+
+### app.config.ts
+```typescript
+import { ApplicationConfig } from '@angular/core';
+import { provideRouter, withViewTransitions } from '@angular/router';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { routes } from './app.routes';
+import { APP_INITIALIZER } from '@angular/core';
+import { ConfigService } from './core/services/config.service';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
+
+// Configuration loader factory
+export function initializeApp(configService: ConfigService) {
+  return () => configService.loadConfig();
+}
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(routes, withViewTransitions()),
+    provideHttpClient(withInterceptors([authInterceptor])),
+    provideAnimations(),
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initializeApp,
+      deps: [ConfigService],
+      multi: true
+    }
+  ]
+};
+```
+
+## 8. Feature Components
+
+### home.component.ts
+```typescript
+import { Component } from '@angular/core';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+
+@Component({
+  selector: 'app-home',
+  standalone: true,
+  imports: [MatCardModule, MatButtonModule],
+  template: `
+    <div class="home-container">
+      <h1>Welcome to the Application</h1>
+      
+      <div class="dashboard-cards">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title>Card {{i}}</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <p>This is card {{i}} content. Add your dashboard content here.</p>
+            </mat-card-content>
+            <mat-card-actions>
+              <button mat-button color="primary">ACTION</button>
+            </mat-card-actions>
+          </mat-card>
+        }
+      </div>
+    </div>
+  `,
+  styleUrls: ['./home.component.scss']
+})
+export class HomeComponent {}
+```
+
+### home.component.scss
+```scss
+@use 'src/styles/tokens' as tokens;
+
+.home-container {
+  padding: tokens.$space-m;
+}
+
+h1 {
+  margin-bottom: tokens.$space-l;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: tokens.$space-m;
+}
+
+mat-card {
+  height: 100%;
+}
+```
+
+## 9. Feature Modules
+
+### activities.component.ts
+```typescript
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { MatTabsModule } from '@angular/material/tabs';
+
+@Component({
+  selector: 'app-activities',
+  standalone: true,
+  imports: [RouterOutlet, MatTabsModule],
+  template: `
+    <div class="activities-container">
+      <h1>Activities</h1>
+      
+      <mat-tab-group>
+        <mat-tab label="All">
+          <div class="tab-content">
+            <router-outlet></router-outlet>
+          </div>
+        </mat-tab>
+        <mat-tab label="Favorites">
+          <div class="tab-content">
+            <p>Favorites content goes here.</p>
+          </div>
+        </mat-tab>
+        <mat-tab label="Recent">
+          <div class="tab-content">
+            <p>Recent content goes here.</p>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </div>
+  `,
+  styleUrls: ['./activities.component.scss']
+})
+export class ActivitiesComponent {}
+```
+
+### activities.component.scss
+```scss
+@use 'src/styles/tokens' as tokens;
+
+.activities-container {
+  padding: tokens.$space-m;
+}
+
+h1 {
+  margin-bottom: tokens.$space-m;
+}
+
+.tab-content {
+  padding: tokens.$space-m 0;
+}
+```
+
+### activities.routes.ts
+```typescript
+import { Routes } from '@angular/router';
+import { ActivitiesComponent } from './activities.component';
+import { adminGuard } from '../../core/guards/admin.guard';
+
+export const routes: Routes = [
+  {
+    path: '',
+    component: ActivitiesComponent,
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./activity-list/activity-list.component')
+          .then(m => m.ActivityListComponent)
+      },
+      {
+        path: 'create',
+        loadComponent: () => import('./activity-create/activity-create.component')
+          .then(m => m.ActivityCreateComponent),
+        canActivate: [adminGuard]
+      },
+      {
+        path: ':id',
+        loadComponent: () => import('./activity-detail/activity-detail.component')
+          .then(m => m.ActivityDetailComponent)
+      }
+    ]
+  }
+];
+```
+
+## 10. Main Entry Point
+
+### main.ts
+```typescript
+import { bootstrapApplication } from '@angular/platform-browser';
+import { AppComponent } from './app/app.component';
+import { appConfig } from './app/app.config';
+
+bootstrapApplication(AppComponent, appConfig)
+  .catch(err => console.error(err));
+```
+
+## 11. JSON Configuration File
+
+### app-config.json
+```json
+{
+  "siteName": "Angular 19 App",
+  "enableAuthentication": true,
+  "pages": [
+    { 
+      "page": "home", 
+      "route": "/", 
+      "iconName": "home", 
+      "title": "Home" 
+    },
+    { 
+      "page": "activities", 
+      "route": "/activities", 
+      "iconName": "assignment", 
+      "title": "Activities",
+      "canActivate": ["AuthGuard"],
+      "children": [
+        {
+          "page": "activityList",
+          "route": "",
+          "title": "All Activities"
+        },
+        {
+          "page": "activityDetail",
+          "route": ":id",
+          "title": "Activity Detail"
+        },
+        {
+          "page": "activityCreate",
+          "route": "create",
+          "title": "Create Activity",
+          "canActivate": ["AdminGuard"]
+        }
+      ]
+    },
+    {
+      "page": "settings",
+      "route": "/settings",
+      "iconName": "settings",
+      "title": "Settings",
+      "canActivate": ["AuthGuard"],
+      "children": [
+        {
+          "page": "profile",
+          "route": "profile",
+          "title": "User Profile"
+        },
+        {
+          "page": "security",
+          "route": "security",
+          "title": "Security Settings",
+          "canActivate": ["AdminGuard"]
+        }
+      ]
+    },
+    {
+      "page": "admin",
+      "route": "/admin",
+      "iconName": "admin_panel_settings",
+      "title": "Admin Dashboard",
+      "canActivate": ["AdminGuard"],
+      "children": [
+        {
+          "page": "users",
+          "route": "users",
+          "title": "User Management"
+        },
+        {
+          "page": "settings",
+          "route": "settings",
+          "title": "System Settings"
+        }
+      ]
+    },
+    {
+      "page": "system",
+      "route": "/system",
+      "iconName": "engineering",
+      "title": "System",
+      "canActivate": ["SiteAdminGuard"],
+      "children": [
+        {
+          "page": "configuration",
+          "route": "config",
+          "title": "Global Configuration"
+        },
+        {
+          "page": "logs",
+          "route": "logs",
+          "title": "System Logs"
+        }
+      ]
+    }
+  ]
+}
+```
+
+This complete implementation provides you with a fully functional Angular 19 application featuring:
+
+1. Configuration-driven routing
+2. Global authentication toggle
+3. Role-based access control with three roles (user, admin, siteadmin)
+4. Streamlined login screen without header/sidebar
+5. Token reference layer for improved styling
+6. Lazy-loaded features
+7. Responsive layout with fixed header, persistent sidebar, and scrollable content
+
+To run the application, use:
+```bash
+ng serve
+```
+
+To test different roles, log in with:
+- User role: any networkID + password "user"
+- Admin role: any networkID + password "admin"
+- Site Admin role: any networkID + password "siteadmin"
