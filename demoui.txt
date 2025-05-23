@@ -1,1685 +1,2535 @@
-# Angular 19 Project Implementation - Part 1 of 4
-
-## 1. Project Configuration and Models
-
-### app-config.model.ts
-```typescript
-export interface PageConfig {
-  page: string;
-  route: string;
-  iconName: string;
-  title?: string;
-  permissions?: string[];
-  canActivate?: string[];
-  children?: PageConfigChild[];
-  loadChildren?: boolean;
-  data?: { [key: string]: any };
-}
-
-export interface PageConfigChild {
-  page: string;
-  route: string;
-  iconName?: string;
-  title?: string;
-  component?: string;
-  canActivate?: string[];
-  children?: PageConfigChild[];
-  data?: { [key: string]: any };
-}
-
-export interface AppConfig {
-  siteName: string;
-  enableAuthentication: boolean; // Global toggle for authentication
-  pages: PageConfig[];
-}
-```
-
-### app-config.ts
-```typescript
-import { AppConfig } from './app-config.model';
-
-export const APP_CONFIG: AppConfig = {
-  siteName: 'Angular 19 App',
-  enableAuthentication: true, // Set to false to disable authentication globally
-  pages: [
-    { 
-      page: 'home', 
-      route: '/', 
-      iconName: 'home', 
-      title: 'Home' 
-    },
-    { 
-      page: 'activities', 
-      route: '/activities', 
-      iconName: 'assignment', 
-      title: 'Activities',
-      canActivate: ['AuthGuard'],
-      children: [
-        {
-          page: 'activityList',
-          route: '',
-          title: 'All Activities'
-        },
-        {
-          page: 'activityDetail',
-          route: ':id',
-          title: 'Activity Detail'
-        },
-        {
-          page: 'activityCreate',
-          route: 'create',
-          title: 'Create Activity',
-          canActivate: ['AdminGuard']
-        }
-      ]
-    },
-    {
-      page: 'settings',
-      route: '/settings',
-      iconName: 'settings',
-      title: 'Settings',
-      canActivate: ['AuthGuard'],
-      children: [
-        {
-          page: 'profile',
-          route: 'profile',
-          title: 'User Profile'
-        },
-        {
-          page: 'security',
-          route: 'security',
-          title: 'Security Settings',
-          canActivate: ['AdminGuard']
-        }
-      ]
-    },
-    {
-      page: 'admin',
-      route: '/admin',
-      iconName: 'admin_panel_settings',
-      title: 'Admin Dashboard',
-      canActivate: ['AdminGuard'],
-      children: [
-        {
-          page: 'users',
-          route: 'users',
-          title: 'User Management'
-        },
-        {
-          page: 'settings',
-          route: 'settings',
-          title: 'System Settings'
-        }
-      ]
-    },
-    {
-      page: 'system',
-      route: '/system',
-      iconName: 'engineering',
-      title: 'System',
-      canActivate: ['SiteAdminGuard'],
-      children: [
-        {
-          page: 'configuration',
-          route: 'config',
-          title: 'Global Configuration'
-        },
-        {
-          page: 'logs',
-          route: 'logs',
-          title: 'System Logs'
-        }
-      ]
+</div>
+    </header>
+  `,
+  styles: [`
+    .global-header {
+      grid-area: header;
+      background-color: var(--mq-color-background-header-static, #333333);
+      color: var(--mq-color-text-primary-inverse-static, #ffffff);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--mq-space-m, 16px) var(--mq-space-2xl, 32px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
-  ]
-};
+    
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-width: 100px;
+      gap: var(--mq-space-s, 8px);
+      color: var(--mq-color-text-primary-inverse-static, #ffffff);
+    }
+    
+    .user-button {
+      color: var(--mq-color-text-primary-inverse-static, #ffffff);
+    }
+    
+    .header-left {
+      text-align: left;
+    }
+  `]
+})
+export class GlobalHeaderComponent {
+  constructor(
+    public authService: AuthService,
+    private router: Router
+  ) {}
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+}
 ```
 
-### user.model.ts
+## src/app/components/side-nav/side-nav.component.ts
 ```typescript
-export interface User {
+import { Component, computed, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import { UIStateService } from '../../services/ui-state.service';
+
+interface NavItem {
   id: string;
-  networkID: string;
+  name: string;
+  icon: string;
+  enabled: boolean;
+  route?: string;
+}
+
+@Component({
+  selector: 'app-side-nav',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <nav class="side-nav">
+      <ul>
+        <li *ngFor="let item of navItems(); trackBy: trackByName"
+            [class.enabled]="item.enabled"
+            [class.disabled]="!item.enabled"
+            [class.selected]="selectedItem() === item.id"
+            [class.hovered]="hoveredItem() === item.id && item.enabled"
+            (mouseenter)="onNavItemMouseEnter(item)"
+            (mouseleave)="onNavItemMouseLeave()"
+            (click)="onNavItemClick(item)">
+          
+          <div *ngIf="item.enabled">
+            <gel-icon 
+              data-theme="dark" 
+              [name]="item.icon" 
+              size="md">
+            </gel-icon>
+            <gel-text 
+              data-theme="dark" 
+              size="s" 
+              removeMargins="true">
+              {{ item.name }}
+            </gel-text>
+          </div>
+          
+          <div *ngIf="!item.enabled">
+            <gel-icon 
+              data-theme="dark" 
+              [name]="item.icon" 
+              size="md"
+              appearance="disabled">
+            </gel-icon>
+            <gel-text 
+              data-theme="dark" 
+              size="s" 
+              removeMargins="true"
+              appearance="disabled">
+              {{ item.name }}
+            </gel-text>
+          </div>
+        </li>
+      </ul>
+      
+      <div class="site-status-container">
+        <div class="version-wrapper">
+          <gel-text size="s" appearance="disabled">v1.1.0</gel-text>
+        </div>
+      </div>
+    </nav>
+  `,
+  styles: [`
+    .side-nav {
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 64px;
+      width: 88px;
+      height: calc(100vh - 64px);
+      background: var(--mq-color-background-header-static, #333333);
+      overflow: visible;
+      text-align: center;
+      color: var(--mq-color-text-primary-inverse-static, #ffffff);
+      z-index: 100;
+    }
+    
+    .site-status-container {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--mq-space-xs, 4px);
+      justify-content: center;
+      padding-bottom: var(--mq-space-l, 16px);
+    }
+    
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    li {
+      cursor: pointer;
+      padding: 11.5px var(--mq-space-s, 8px);
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--mq-space-xs, 4px);
+    }
+    
+    li gel-text {
+      margin: 0;
+    }
+    
+    li.selected {
+      background-color: var(--mq-color-brand-600, #0954a0);
+      color: var(--mq-color-text-primary-inverse-static, #ffffff);
+    }
+    
+    li.hovered {
+      background-color: var(--mq-color-interactive-background-tertiary-hover, #f7f7f7);
+      color: var(--mq-color-text-primary-inverse-static, #ffffff);
+    }
+    
+    li.disabled {
+      cursor: default;
+      opacity: 0.5;
+    }
+    
+    .version-wrapper {
+      display: flex;
+      justify-content: center;
+    }
+  `]
+})
+export class SideNavComponent {
+  private readonly _hoveredItem = signal<string | null>(null);
+
+  // Navigation items as a signal
+  private readonly _navItems = signal<NavItem[]>([
+    { id: 'activities', name: 'Activities', icon: 'assignment', enabled: false },
+    { id: 'deals', name: 'Deals', icon: 'account_balance', enabled: true, route: '/dashboard/deals' },
+    { id: 'covenants', name: 'Covenants', icon: 'gavel', enabled: false },
+    { id: 'deal-booking', name: 'Deal Booking', icon: 'book', enabled: false },
+    { id: 'documents', name: 'Documents', icon: 'description', enabled: false }
+  ]);
+
+  // Public readonly signals
+  readonly navItems = computed(() => this._navItems());
+  readonly hoveredItem = computed(() => this._hoveredItem());
+  readonly selectedItem = computed(() => this.uiState.selectedNavItem());
+
+  constructor(
+    private router: Router,
+    private uiState: UIStateService
+  ) {}
+
+  trackByName(index: number, item: NavItem): string {
+    return item.id;
+  }
+
+  onNavItemMouseEnter(item: NavItem): void {
+    if (item.enabled) {
+      this._hoveredItem.set(item.id);
+    }
+  }
+
+  onNavItemMouseLeave(): void {
+    this._hoveredItem.set(null);
+  }
+
+  onNavItemClick(item: NavItem): void {
+    if (item.enabled) {
+      this.uiState.selectNavItem(item.id);
+      if (item.route) {
+        this.router.navigate([item.route]);
+      }
+    }
+  }
+}
+```
+
+## src/app/components/dashboard/dashboard.component.ts
+```typescript
+import { Component, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
+import { GlobalHeaderComponent } from '../global-header/global-header.component';
+import { SideNavComponent } from '../side-nav/side-nav.component';
+import { AddDealDrawerComponent } from '../add-deal-drawer/add-deal-drawer.component';
+import { DealService } from '../../services/deal.service';
+import { UIStateService } from '../../services/ui-state.service';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    GlobalHeaderComponent,
+    SideNavComponent,
+    AddDealDrawerComponent
+  ],
+  template: `
+    <div class="dashboard-container">
+      <app-global-header></app-global-header>
+      
+      <div class="main-content">
+        <app-side-nav></app-side-nav>
+        
+        <div class="content-area">
+          <!-- Welcome Screen -->
+          <div class="welcome-section">
+            <h1>Welcome Screen (after you login) UI</h1>
+            
+            <div class="action-buttons">
+              <gel-text-input
+                placeholder="Search deals..."
+                size="md"
+                [value]="dealService.searchTerm()"
+                (valueChange)="onSearchChange($event)"
+                class="search-field">
+              </gel-text-input>
+              
+              <gel-button 
+                hierarchy="primary" 
+                (click)="openAddDeal()">
+                Add
+              </gel-button>
+              <gel-button 
+                hierarchy="secondary">
+                Remove
+              </gel-button>
+              <gel-button 
+                hierarchy="primary"
+                appearance="success">
+                Approver Workflow
+              </gel-button>
+            </div>
+            
+            <!-- Deal Statistics -->
+            <div class="stats-section" *ngIf="dealStats().total > 0">
+              <div class="stat-card">
+                <h3>Total Deals</h3>
+                <span class="stat-number">{{ dealStats().total }}</span>
+              </div>
+              <div class="stat-card">
+                <h3>Total Facility Amount</h3>
+                <span class="stat-number">{{ dealStats().totalFacilityAmount | currency:'USD':'symbol':'1.0-0' }}</span>
+              </div>
+            </div>
+            
+            <!-- Deals Table -->
+            <div class="deals-section">
+              <h2>Deals</h2>
+              <p class="deals-note">Deals are clickable, and go to Deal Home Page UI</p>
+              
+              <gel-table size="md">
+                <gel-table-row slot="header">
+                  <gel-table-header heading="Deals"></gel-table-header>
+                  <gel-table-header heading="Facility"></gel-table-header>
+                  <gel-table-header heading="Industry"></gel-table-header>
+                  <gel-table-header heading="Type"></gel-table-header>
+                  <gel-table-header heading="Status"></gel-table-header>
+                </gel-table-row>
+                
+                <gel-table-row 
+                  *ngFor="let deal of filteredDeals(); trackBy: trackByDeal"
+                  slot="body" 
+                  (click)="onDealClick(deal)"
+                  class="deal-row">
+                  <gel-table-cell>
+                    <gel-text size="m" class="deal-name">{{ deal.name }}</gel-text>
+                    <gel-text size="xs" class="deal-subtitle">{{ deal.shortNames }}</gel-text>
+                  </gel-table-cell>
+                  <gel-table-cell>
+                    <gel-text size="m">{{ deal.facility }}</gel-text>
+                  </gel-table-cell>
+                  <gel-table-cell>
+                    <gel-text size="m">{{ deal.industry }}</gel-text>
+                  </gel-table-cell>
+                  <gel-table-cell>
+                    <gel-text size="m">{{ deal.type }}</gel-text>
+                  </gel-table-cell>
+                  <gel-table-cell>
+                    <gel-badge [label]="deal.status"></gel-badge>
+                  </gel-table-cell>
+                </gel-table-row>
+              </gel-table>
+              
+              <div class="no-deals" *ngIf="filteredDeals().length === 0 && dealService.searchTerm()">
+                <gel-text size="m">No deals found matching "{{ dealService.searchTerm() }}"</gel-text>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Child Route Content -->
+          <router-outlet></router-outlet>
+        </div>
+      </div>
+      
+      <!-- Add Deal Drawer -->
+      <app-add-deal-drawer 
+        [isOpen]="uiState.isAddDealOpen()"
+        (openChange)="onAddDealOpenChange($event)"
+        (dealAdded)="onDealAdded($event)">
+      </app-add-deal-drawer>
+    </div>
+  `,
+  styles: [`
+    .dashboard-container {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      background-color: var(--mq-color-grey-50, #f7f7f7);
+    }
+    
+    .main-content {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .content-area {
+      padding: var(--mq-space-xl, 24px);
+      overflow-y: auto;
+      background: var(--mq-color-grey-50, #f7f7f7);
+    }
+    
+    .welcome-section {
+      background: var(--mq-color-primary-white, #ffffff);
+      border-radius: var(--mq-border-radius-m, 8px);
+      padding: var(--mq-space-xl, 24px);
+      margin-bottom: var(--mq-space-xl, 24px);
+      box-shadow: var(--mq-shadow-l1-0, 0px 2px 2px 0px #0000001a);
+    }
+    
+    h1 {
+      font-size: 24px;
+      font-weight: 400;
+      margin-bottom: var(--mq-space-xl, 24px);
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: var(--mq-space-l, 16px);
+      align-items: center;
+      margin-bottom: var(--mq-space-2xl, 32px);
+      flex-wrap: wrap;
+    }
+    
+    .search-field {
+      min-width: 250px;
+    }
+    
+    .stats-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--mq-space-l, 16px);
+      margin-bottom: var(--mq-space-2xl, 32px);
+    }
+    
+    .stat-card {
+      background: var(--mq-color-grey-50, #f7f7f7);
+      border-radius: var(--mq-border-radius-s, 4px);
+      padding: var(--mq-space-l, 16px);
+      text-align: center;
+    }
+    
+    .stat-card h3 {
+      margin: 0 0 var(--mq-space-s, 8px) 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--mq-color-text-tertiary, #666666);
+    }
+    
+    .stat-number {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--mq-color-text-brand, #0c6cce);
+    }
+    
+    .deals-section h2 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: var(--mq-space-s, 8px);
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .deals-note {
+      color: var(--mq-color-text-tertiary, #666666);
+      font-style: italic;
+      margin-bottom: var(--mq-space-l, 16px);
+    }
+    
+    .deal-row {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    
+    .deal-row:hover {
+      background-color: var(--mq-color-grey-100, #f2f2f2);
+    }
+    
+    .deal-name {
+      color: var(--mq-color-text-brand, #0c6cce);
+      font-weight: 500;
+    }
+    
+    .deal-subtitle {
+      color: var(--mq-color-text-tertiary, #666666);
+    }
+    
+    .no-deals {
+      text-align: center;
+      padding: var(--mq-space-2xl, 32px);
+      color: var(--mq-color-text-tertiary, #666666);
+    }
+  `]
+})
+export class DashboardComponent {
+  // Computed signals from services
+  readonly filteredDeals = computed(() => this.dealService.filteredDeals());
+  readonly dealStats = computed(() => this.dealService.dealStats());
+
+  constructor(
+    public dealService: DealService,
+    public uiState: UIStateService
+  ) {}
+
+  trackByDeal(index: number, deal: any): string {
+    return deal.id || index.toString();
+  }
+
+  onSearchChange(searchTerm: string): void {
+    this.dealService.setSearchTerm(searchTerm);
+  }
+
+  openAddDeal(): void {
+    this.uiState.openAddDeal();
+  }
+
+  onAddDealOpenChange(isOpen: boolean): void {
+    if (!isOpen) {
+      this.uiState.closeAddDeal();
+    }
+  }
+
+  onDealAdded(deal: any): void {
+    console.log('New deal added:', deal);
+    this.uiState.closeAddDeal();
+  }
+
+  onDealClick(deal: any): void {
+    this.dealService.selectDeal(deal);
+    console.log('Deal clicked:', deal);
+    // TODO: Navigate to deal details page
+  }
+}
+```
+
+## src/app/components/deals/deals.component.ts
+```typescript
+import { Component, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { DealService } from '../../services/deal.service';
+
+@Component({
+  selector: 'app-deals',
+  standalone: true,
+  imports: [
+    CommonModule
+  ],
+  template: `
+    <div class="deals-container">
+      <h1>Loan Activities</h1>
+      
+      <!-- Activity Cards -->
+      <div class="activity-cards">
+        <div class="activity-card">
+          <h3>Today</h3>
+          <p>No activities scheduled for today</p>
+        </div>
+        
+        <div class="activity-card">
+          <h3>Tomorrow</h3>
+          <p>No activities scheduled for tomorrow</p>
+        </div>
+        
+        <div class="activity-card">
+          <h3>Month End</h3>
+          <p>No month-end activities</p>
+        </div>
+        
+        <div class="activity-card">
+          <h3>Overdue</h3>
+          <p>No overdue activities</p>
+        </div>
+      </div>
+      
+      <!-- My Loans Section -->
+      <div class="my-loans-section">
+        <div class="section-header">
+          <h2>My Loans</h2>
+          <gel-text-input
+            placeholder="Search loans..."
+            size="md"
+            [value]="dealService.searchTerm()"
+            (valueChange)="onSearchChange($event)"
+            class="search-field">
+          </gel-text-input>
+        </div>
+        
+        <div class="loans-table-container">
+          <gel-table size="md">
+            <gel-table-row slot="header">
+              <gel-table-header heading="Date"></gel-table-header>
+              <gel-table-header heading="Status"></gel-table-header>
+              <gel-table-header heading="Automated"></gel-table-header>
+              <gel-table-header heading="Activity"></gel-table-header>
+              <gel-table-header heading="Deal"></gel-table-header>
+              <gel-table-header heading="Approver"></gel-table-header>
+              <gel-table-header heading="Borrower"></gel-table-header>
+              <gel-table-header heading="Facility"></gel-table-header>
+              <gel-table-header heading="Loan Alias"></gel-table-header>
+              <gel-table-header heading="CCY"></gel-table-header>
+              <gel-table-header heading="Tran Amount"></gel-table-header>
+              <gel-table-header heading="Host Bank"></gel-table-header>
+              <gel-table-header heading="Agent"></gel-table-header>
+            </gel-table-row>
+            
+            <gel-table-row 
+              *ngFor="let deal of filteredDeals()"
+              slot="body">
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.createdDate | date:'shortDate' }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-badge [label]="deal.status"></gel-badge>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">-</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">-</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.name }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.agent }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.name }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.facility }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.shortNames }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">USD</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.facilityLimit | currency:'USD':'symbol':'1.0-0' }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.agent }}</gel-text>
+              </gel-table-cell>
+              <gel-table-cell>
+                <gel-text size="m">{{ deal.agent }}</gel-text>
+              </gel-table-cell>
+            </gel-table-row>
+          </gel-table>
+          
+          <div class="no-data" *ngIf="filteredDeals().length === 0">
+            <gel-text size="m" class="no-data-text">
+              <span *ngIf="!dealService.searchTerm()">No loan activities found</span>
+              <span *ngIf="dealService.searchTerm()">No loans found matching "{{ dealService.searchTerm() }}"</span>
+            </gel-text>
+          </div>
+        </div>
+        
+        <div class="pagination-info">
+          <gel-text size="s" appearance="disabled">{{ filteredDeals().length }} of {{ totalDeals() }}</gel-text>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .deals-container {
+      padding: var(--mq-space-xl, 24px);
+      max-width: 100%;
+    }
+    
+    h1 {
+      font-size: 28px;
+      font-weight: 400;
+      margin-bottom: var(--mq-space-xl, 24px);
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .activity-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--mq-space-l, 16px);
+      margin-bottom: var(--mq-space-2xl, 32px);
+    }
+    
+    .activity-card {
+      background: var(--mq-color-primary-white, #ffffff);
+      border-radius: var(--mq-border-radius-m, 8px);
+      padding: var(--mq-space-xl, 24px);
+      box-shadow: var(--mq-shadow-l1-0, 0px 2px 2px 0px #0000001a);
+      min-height: 120px;
+    }
+    
+    .activity-card h3 {
+      margin: 0 0 var(--mq-space-m, 12px) 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .activity-card p {
+      margin: 0;
+      color: var(--mq-color-text-tertiary, #666666);
+      font-size: 14px;
+    }
+    
+    .my-loans-section {
+      background: var(--mq-color-primary-white, #ffffff);
+      border-radius: var(--mq-border-radius-m, 8px);
+      box-shadow: var(--mq-shadow-l1-0, 0px 2px 2px 0px #0000001a);
+    }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--mq-space-l, 16px) var(--mq-space-xl, 24px);
+      border-bottom: 1px solid var(--mq-color-grey-200, #d9d9d9);
+    }
+    
+    .section-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .search-field {
+      width: 300px;
+    }
+    
+    .loans-table-container {
+      min-height: 400px;
+      overflow-x: auto;
+    }
+    
+    .no-data {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+    }
+    
+    .no-data-text {
+      color: var(--mq-color-text-tertiary, #666666);
+      font-style: italic;
+    }
+    
+    .pagination-info {
+      padding: var(--mq-space-l, 16px) var(--mq-space-xl, 24px);
+      text-align: right;
+      border-top: 1px solid var(--mq-color-grey-200, #d9d9d9);
+    }
+  `]
+})
+export class DealsComponent {
+  // Computed signals from service
+  readonly filteredDeals = computed(() => this.dealService.filteredDeals());
+  readonly totalDeals = computed(() => this.dealService.deals().length);
+
+  constructor(public dealService: DealService) {}
+
+  onSearchChange(searchTerm: string): void {
+    this.dealService.setSearchTerm(searchTerm);
+  }
+}
+```
+
+## src/app/components/add-deal-drawer/add-deal-drawer.component.ts
+```typescript
+import { Component, EventEmitter, Input, Output, signal, computed, effect } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { Deal, Contact, DealService } from '../../services/deal.service';
+import { ConfirmationDialogComponent } from '../confirmation-dialog/confirmation-dialog.component';
+
+@Component({
+  selector: 'app-add-deal-drawer',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatSidenavModule,
+    MatProgressSpinnerModule,
+    MatDialogModule
+  ],
+  template: `
+    <mat-sidenav-container class="drawer-container">
+      <mat-sidenav 
+        #drawer
+        position="end"
+        mode="over"
+        [opened]="isOpen"
+        [disableClose]="false"
+        class="add-deal-drawer"
+        (openedChange)="handleOpenedChange($event)">
+        
+        <div class="drawer-header">
+          <h2>Add Deal UI</h2>
+          <gel-button 
+            hierarchy="secondary" 
+            size="sm" 
+            icon-left="close"
+            (click)="close()">
+          </gel-button>
+        </div>
+        
+        <div class="drawer-content">
+          <gel-form name="deal-form" action="#" (ngSubmit)="onSubmit()" #dealForm="ngForm">
+            
+            <gel-form-item layout="vertical" label="Name">
+              <gel-text-input
+                name="name"
+                [value]="formData().name"
+                (valueChange)="updateFormField('name', $event)"
+                required="true"
+                placeholder="Enter deal name">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Logo">
+              <gel-text-input
+                name="logo"
+                [value]="formData().logo"
+                (valueChange)="updateFormField('logo', $event)"
+                placeholder="ability to download picture for logo">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Facility Limit">
+              <gel-text-input
+                name="facilityLimit"
+                inputType="number"
+                [value]="formData().facilityLimit.toString()"
+                (valueChange)="updateFormField('facilityLimit', +$event)"
+                required="true"
+                placeholder="Enter facility limit">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <div class="form-row">
+              <gel-form-item layout="vertical" label="Agent" class="agent-field">
+                <gel-text-input
+                  name="agent"
+                  [value]="formData().agent"
+                  (valueChange)="updateFormField('agent', $event)"
+                  required="true"
+                  placeholder="Enter agent">
+                </gel-text-input>
+              </gel-form-item>
+              
+              <div class="prorate-section">
+                <span class="prorate-label">Prorate Share</span>
+                <gel-checkbox 
+                  [checked]="prorateManual()"
+                  (checkedChange)="setProrateManual($event)">
+                </gel-checkbox>
+              </div>
+            </div>
+            
+            <gel-form-item layout="vertical" label="Short Names">
+              <gel-text-input
+                name="shortNames"
+                [value]="formData().shortNames"
+                (valueChange)="updateFormField('shortNames', $event)"
+                required="true"
+                placeholder="This is the unique ID that is used in LoanIQ">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Facility">
+              <gel-dropdown 
+                [selectedItemId]="formData().facility"
+                (selectionChange)="updateFormField('facility', $event)"
+                name="facility"
+                label="Select facility type">
+                <gel-dropdown-item id="Revolver" label="Revolver"></gel-dropdown-item>
+                <gel-dropdown-item id="Term Loan" label="Term Loan"></gel-dropdown-item>
+                <gel-dropdown-item id="Transactional" label="Transactional"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Industry">
+              <gel-dropdown 
+                [selectedItemId]="formData().industry"
+                (selectionChange)="updateFormField('industry', $event)"
+                name="industry"
+                label="Select industry">
+                <gel-dropdown-item id="Energy" label="Energy"></gel-dropdown-item>
+                <gel-dropdown-item id="Metals" label="Metals"></gel-dropdown-item>
+                <gel-dropdown-item id="Technology" label="Technology"></gel-dropdown-item>
+                <gel-dropdown-item id="Healthcare" label="Healthcare"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Type">
+              <gel-dropdown 
+                [selectedItemId]="formData().type"
+                (selectionChange)="updateFormField('type', $event)"
+                name="type"
+                label="Select type">
+                <gel-dropdown-item id="Syndication" label="Syndication"></gel-dropdown-item>
+                <gel-dropdown-item id="Bilateral" label="Bilateral"></gel-dropdown-item>
+                <gel-dropdown-item id="Club Deal" label="Club Deal"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Status">
+              <gel-dropdown 
+                [selectedItemId]="formData().status"
+                (selectionChange)="updateFormField('status', $event)"
+                name="status"
+                label="Select status">
+                <gel-dropdown-item id="Lender" label="Lender"></gel-dropdown-item>
+                <gel-dropdown-item id="Agent" label="Agent"></gel-dropdown-item>
+                <gel-dropdown-item id="Participant" label="Participant"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <div class="contacts-section">
+              <h3>Contacts</h3>
+              <div class="contact-row" *ngFor="let contact of contacts(); let i = index; trackBy: trackByIndex">
+                <gel-text-input
+                  [name]="'contactName' + i"
+                  label="Name"
+                  [value]="contact.name"
+                  (valueChange)="updateContact(i, 'name', $event)"
+                  class="contact-name">
+                </gel-text-input>
+                <gel-text-input
+                  [name]="'contactRole' + i"
+                  label="Role"
+                  [value]="contact.role"
+                  (valueChange)="updateContact(i, 'role', $event)"
+                  class="contact-role">
+                </gel-text-input>
+                <gel-button 
+                  hierarchy="secondary" 
+                  size="sm" 
+                  icon-left="delete"
+                  *ngIf="contacts().length > 1"
+                  (click)="removeContact(i)">
+                </gel-button>
+              </div>
+              <gel-button 
+                hierarchy="secondary" 
+                size="sm" 
+                icon-left="add"
+                (click)="addContact()">
+                Add Contact
+              </gel-button>
+            </div>
+            
+            <gel-form-item layout="vertical" label="Company Description">
+              <textarea 
+                name="companyDescription"
+                [value]="formData().companyDescription"
+                (input)="updateFormField('companyDescription', $any($event.target).value)"
+                required
+                rows="4"
+                class="company-description">
+              </textarea>
+            </gel-form-item>
+            
+            <div class="form-actions">
+              <gel-button 
+                hierarchy="primary"
+                size="lg"
+                [expand]="true"
+                [disabled]="!isFormValid() || isSubmitting()"
+                type="submit">
+                <span *ngIf="!isSubmitting()">Submit</span>
+                <span *ngIf="isSubmitting()">Submitting...</span>
+              </gel-button>
+            </div>
+          </gel-form>
+        </div>
+      </mat-sidenav>
+    </mat-sidenav-container>
+  `,
+  styles: [`
+    :host {
+      display: block;
+      height: 100%;
+    }
+    
+    .drawer-container {
+      height: 100%;
+    }
+    
+    mat-sidenav {
+      padding-top: var(--mq-space-xl, 24px);
+      width: 300px;
+      padding: 0px var(--mq-space-xl, 24px);
+      border-radius: 0 !important;
+    }
+    
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--mq-space-s, 8px);
+      border-bottom: 1px solid var(--mq-color-grey-200, #d9d9d9);
+      padding-top: var(--mq-space-l, 16px);
+      padding-bottom: var(--mq-space-l, 16px);
+      position: sticky;
+      top: 0px;
+      background: var(--mq-color-primary-white, #ffffff);
+    }
+    
+    .drawer-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .drawer-content {
+      padding-top: var(--mq-space-xl, 24px);
+      overflow-y: auto;
+      padding-bottom: var(--mq-space-xl, 24px);
+    }
+    
+    .form-row {
+      display: flex;
+      gap: var(--mq-space-l, 16px);
+      align-items: flex-end;
+      margin-bottom: var(--mq-space-l, 16px);
+    }
+    
+    .agent-field {
+      flex: 1;
+    }
+    
+    .prorate-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mq-space-xs, 4px);
+      font-size: 12px;
+    }
+    
+    .prorate-label {
+      font-weight: 500;
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .contacts-section {
+      margin: var(--mq-space-xl, 24px) 0;
+    }
+    
+    .contacts-section h3 {
+      margin: 0 0 var(--mq-space-l, 16px) 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--mq-color-text-primary, #0d0d0d);
+    }
+    
+    .contact-row {
+      display: flex;
+      gap: var(--mq-space-s, 8px);
+      align-items: flex-end;
+      margin-bottom: var(--mq-space-l, 16px);
+    }
+    
+    .contact-name {
+      flex: 2;
+    }
+    
+    .contact-role {
+      flex: 1;
+    }
+    
+    .company-description {
+      width: 100%;
+      padding: var(--mq-space-s, 8px) var(--mq-space-m, 12px);
+      border: 1px solid var(--mq-color-grey-300, #bfbfbf);
+      border-radius: var(--mq-border-radius-s, 4px);
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--mq-color-text-primary, #0d0d0d);
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    .company-description:focus {
+      outline: none;
+      border-color: var(--mq-color-brand-500, #0c6cce);
+      box-shadow: 0 0 0 2px var(--mq-color-brand-100, #e4f1fd);
+    }
+    
+    .form-actions {
+      margin-top: var(--mq-space-xl, 24px);
+      padding-bottom: var(--mq-space-xl, 24px);
+    }
+  `]
+})
+export class AddDealDrawerComponent {
+  @Input() isOpen = false;
+  @Output() openChange = new EventEmitter<boolean>();
+  @Output() dealAdded = new EventEmitter<Deal>();
+
+  // Form state signals
+  private readonly _formData = signal<Omit<Deal, 'id' | 'createdDate'>>({
+    name: '',
+    logo: '',
+    facilityLimit: 0,
+    agent: '',
+    shortNames: '',
+    facility: '',
+    industry: '',
+    type: '',
+    status: '',
+    companyDescription: '',
+    contacts: [{ name: '', role: '' }]
+  });
+
+  private readonly _contacts = signal<Contact[]>([{ name: '', role: '' }]);
+  private readonly _prorateManual = signal(false);
+  private readonly _isSubmitting = signal(false);
+
+  // Public readonly signals
+  readonly formData = computed(() => this._formData());
+  readonly contacts = computed(() => this._contacts());
+  readonly prorateManual = computed(() => this._prorateManual());
+  readonly isSubmitting = computed(() => this._isSubmitting());
+
+  // Computed validation
+  readonly isFormValid = computed(() => {
+    const data = this.formData();
+    return !!(
+      data.name.trim() &&
+      data.agent.trim() &&
+      data.shortNames.trim() &&
+      data.facility &&
+      data.industry &&
+      data.type &&
+      data.status &&
+      data.companyDescription.trim() &&
+      data.facilityLimit > 0
+    );
+  });
+
+  constructor(
+    private dealService: DealService, 
+    private dialog: MatDialog
+  ) {
+    // Effect to sync contacts with form data
+    effect(() => {
+      const contacts = this.contacts();
+      this._formData.update(data => ({ ...data, contacts }));
+    });
+  }
+
+  trackByIndex(index: number): number {
+    return index;
+  }
+
+  updateFormField(field: keyof Omit<Deal, 'id' | 'createdDate' | 'contacts'>, value: any): void {
+    this._formData.update(data => ({ ...data, [field]: value }));
+  }
+
+  updateContact(index: number, field: keyof Contact, value: string): void {
+    this._contacts.update(contacts => 
+      contacts.map((contact, i) => 
+        i === index ? { ...contact, [field]: value } : contact
+      )
+    );
+  }
+
+  addContact(): void {
+    this._contacts.update(contacts => [...contacts, { name: '', role: '' }]);
+  }
+
+  removeContact(index: number): void {
+    this._contacts.update(contacts => contacts.filter((_, i) => i !== index));
+  }
+
+  setProrateManual(value: boolean): void {
+    this._prorateManual.set(value);
+  }
+
+  handleOpenedChange(opened: boolean): void {
+    if (!opened) {
+      this.close();
+    }
+  }
+
+  close(): void {
+    this.openChange.emit(false);
+    this.resetForm();
+  }
+
+  onSubmit(): void {
+    if (!this.isFormValid()) return;
+
+    const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Confirm Deal Creation',
+        message: `Are you sure you want to create the deal "${this.formData().name}"?`,
+        confirmText: 'Create Deal',
+        cancelText: 'Cancel'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.submitDeal();
+      }
+    });
+  }
+
+  private submitDeal(): void {
+    this._isSubmitting.set(true);
+    
+    this.dealService.addDeal(this.formData() as Deal).subscribe({
+      next: (newDeal) => {
+        this._isSubmitting.set(false);
+        this.dealAdded.emit(newDeal);
+        this.close();
+      },
+      error: (error) => {
+        this._isSubmitting.set(false);
+        console.error('Error creating deal:', error);
+      }
+    });
+  }
+
+  private resetForm(): void {
+    this._formData.set({
+      name: '',
+      logo: '',
+      facilityLimit: 0,
+      agent: '',
+      shortNames: '',
+      facility: '',
+      industry: '',
+      type: '',
+      status: '',
+      companyDescription: '',
+      contacts: [{ name: '', role: '' }]
+    });
+    this._contacts.set([{ name: '', role: '' }]);
+    this._prorateManual.set(false);
+    this._isSubmitting.set(false);
+  }
+}
+```
+
+## src/app/components/confirmation-dialog/confirmation-dialog.component.ts
+```typescript
+import { Component, Inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+
+export interface ConfirmationDialogData {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+}
+
+@Component({
+  selector: 'app-confirmation-dialog',
+  standalone: true,
+  imports: [CommonModule, MatDialogModule],
+  template: `
+    <h2 mat-dialog-title>{{ data.title }}</h2>
+    <div mat-dialog-content>
+      <p>{{ data.message }}</p>
+    </div>
+    <div mat-dialog-actions align="end" class="dialog-actions">
+      <gel-button 
+        hierarchy="secondary" 
+        (click)="onCancel()">
+        {{ data.cancelText }}
+      </gel-button>
+      <gel-button 
+        hierarchy="primary" 
+        (click)="onConfirm()">
+        {{ data.confirmText }}
+      </gel-button>
+    </div>
+  `,
+  styles: [`
+    .dialog-actions {
+      display: flex;
+      gap: var(--mq-space-m, 12px);
+      justify-content: flex-end;
+      padding: var(--mq-space-l, 16px) 0;
+    }
+  `]
+})
+export class ConfirmationDialogComponent {
+  constructor(
+    public dialogRef: MatDialogRef<ConfirmationDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: ConfirmationDialogData
+  ) {}
+
+  onCancel(): void {
+    this.dialogRef.close(false);
+  }
+
+  onConfirm(): void {
+    this.dialogRef.close(true);
+  }
+}
+```
+
+## src/styles.scss
+```scss
+@import '@angular/material/theming';
+
+/* Design Tokens */
+:root {
+  /* Spacing */
+  --mq-space-xs: 4px;
+  --mq-space-s: 8px;
+  --mq-space-m: 12px;
+  --mq-space-l: 16px;
+  --mq-space-xl: 24px;
+  --mq-space-2xl: 32px;
+  --mq-space-3xl: 40px;
+  --mq-space-4xl: 48px;
+  --mq-space-5xl: 56px;
+  --mq-space-6xl: 64px;
+  --mq-space-7xl: 72px;
+  --mq-space-8xl: 80px;
+  --mq-space-2xs: 2px;
+
+  /* Border Radius */
+  --mq-border-radius-xs: 0px;
+  --mq-border-radius-s: 4px;
+  --mq-border-radius-m: 8px;
+  --mq-border-radius-l: 16px;
+  --mq-border-radius-pill: 999px;
+  --mq-border-radius-circle: 50%;
+
+  /* Border Width */
+  --mq-border-width-xs: 0px;
+  --mq-border-width-s: 0.5px;
+  --mq-border-width-m: 1px;
+  --mq-border-width-l: 1.5px;
+  --mq-border-width-xl: 2px;
+  --mq-border-width-2xl: 4px;
+  --mq-border-width-3xl: 8px;
+
+  /* Shadows */
+  --mq-shadow-l1-0: 0px 2px 2px 0px #0000001a;
+  --mq-shadow-l1-1: 0px 0px 2px 0px #00000014;
+  --mq-shadow-l2-0: 0px 4px 8px 0px #0000001a;
+  --mq-shadow-l2-1: 0px 0px 4px 0px #00000014;
+  --mq-shadow-l3-0: 0px 8px 16px 0px #0000001a;
+  --mq-shadow-l3-1: 0px 0px 6px 0px #00000014;
+  --mq-shadow-l4-0: 0px 10px 20px 0px #0000001a;
+  --mq-shadow-l4-1: 0px 0px 8px 0px #00000014;
+  --mq-shadow-l5-0: 0px 12px 24px 0px #0000001a;
+  --mq-shadow-l5-1: 0px 0px 10px 0px #00000014;
+  --mq-shadow-l6-0: 0px 16px 32px 0px #0000001a;
+  --mq-shadow-l6-1: 0px 0px 12px 0px #00000014;
+
+  /* Primary Colors */
+  --mq-color-primary-black: #000000ff;
+  --mq-color-primary-white: #ffffffff;
+  --mq-color-primary-black-4: #0000000a;
+  --mq-color-primary-black-8: #00000014;
+  --mq-color-primary-black-10: #0000001a;
+  --mq-color-primary-white-0: #ffffff00;
+  --mq-color-primary-white-50: #ffffff80;
+  --mq-color-primary-white-4: #ffffff0a;
+  --mq-color-primary-white-8: #ffffff14;
+  --mq-color-primary-white-10: #ffffff1a;
+  --mq-color-primary-white-25: #ffffff40;
+  --mq-color-primary-black-25: #00000040;
+
+  /* Brand Colors */
+  --mq-color-brand-100: #e4f1fdff;
+  --mq-color-brand-200: #a5cffaff;
+  --mq-color-brand-300: #67aef6ff;
+  --mq-color-brand-400: #298df3ff;
+  --mq-color-brand-500: #0c6cceff;
+  --mq-color-brand-600: #0954a0ff;
+  --mq-color-brand-700: #073c71ff;
+  --mq-color-brand-800: #042343ff;
+  --mq-color-brand-900: #010b15ff;
+
+  /* Grey Colors */
+  --mq-color-grey-50: #f7f7f7ff;
+  --mq-color-grey-100: #f2f2f2ff;
+  --mq-color-grey-150: #e5e5e5ff;
+  --mq-color-grey-200: #d9d9d9ff;
+  --mq-color-grey-250: #ccccccff;
+  --mq-color-grey-300: #bfbfbfff;
+  --mq-color-grey-350: #b3b3b3ff;
+  --mq-color-grey-400: #a6a6a6ff;
+  --mq-color-grey-450: #999999ff;
+  --mq-color-grey-500: #8c8c8cff;
+  --mq-color-grey-550: #808080ff;
+  --mq-color-grey-600: #737373ff;
+  --mq-color-grey-650: #666666ff;
+  --mq-color-grey-700: #595959ff;
+  --mq-color-grey-750: #4c4c4cff;
+  --mq-color-grey-800: #404040ff;
+  --mq-color-grey-850: #333333ff;
+  --mq-color-grey-900: #262626ff;
+  --mq-color-grey-950: #1a1a1aff;
+  --mq-color-grey-1000: #0d0d0dff;
+
+  /* Semantic Colors */
+  --mq-color-tomato-100: #ffe8e3ff;
+  --mq-color-tomato-200: #ffb3a4ff;
+  --mq-color-tomato-300: #ff7f65ff;
+  --mq-color-tomato-400: #ff4a25ff;
+  --mq-color-tomato-500: #e52600ff;
+  --mq-color-tomato-600: #b11d00ff;
+  --mq-color-tomato-700: #8c1700ff;
+  --mq-color-tomato-800: #4b0c00ff;
+  --mq-color-tomato-900: #170400ff;
+
+  /* Light theme text colors */
+  --mq-color-text-primary: #0d0d0dff;
+  --mq-color-text-secondary: #333333ff;
+  --mq-color-text-tertiary: #666666ff;
+  --mq-color-text-primary-inverse: #ffffffff;
+  --mq-color-text-secondary-inverse: #e5e5e5ff;
+  --mq-color-text-tertiary-inverse: #bfbfbfff;
+  --mq-color-text-brand: #0c6cceff;
+  --mq-color-text-brand-hover: #0954a0ff;
+  --mq-color-text-disabled: #a6a6a6ff;
+  --mq-color-text-info: #0c6cceff;
+  --mq-color-text-warning: #b14d00ff;
+  --mq-color-text-negative: #b11d00ff;
+  --mq-color-text-positive: #007759ff;
+  --mq-color-text-link: #0c6cceff;
+  --mq-color-text-link-hover: #0954a0ff;
+  --mq-color-text-link-inverse: #ffffffff;
+  --mq-color-text-link-inverse-hover: #f2f2f2ff;
+  --mq-color-text-primary-static: #000000ff;
+  --mq-color-text-secondary-static: #333333ff;
+  --mq-color-text-tertiary-static: #666666ff;
+  --mq-color-text-primary-inverse-static: #ffffffff;
+  --mq-color-text-secondary-inverse-static: #e5e5e5ff;
+  --mq-color-text-tertiary-inverse-static: #b3b3b3ff;
+
+  /* Interactive Colors */
+  --mq-color-interactive-background-brand-primary-default: #0c6cceff;
+  --mq-color-interactive-background-brand-primary-hover: #0954a0ff;
+  --mq-color-interactive-background-brand-primary-pressed: #073c71ff;
+  --mq-color-interactive-background-brand-secondary-hover: #e4f1fdff;
+  --mq-color-interactive-background-brand-secondary-pressed: #a5cffaff;
+  --mq-color-interactive-background-primary-disabled: #bfbfbfff;
+  --mq-color-interactive-background-tertiary-hover: #f7f7f7ff;
+  --mq-color-interactive-background-tertiary-pressed: #f2f2f2ff;
+  --mq-color-interactive-background-primary-default: #000000ff;
+
+  /* Background Colors */
+  --mq-color-background-header-static: #333333ff;
+}
+
+html, body { 
+  height: 100%; 
+  margin: 0; 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  background-color: var(--mq-color-grey-50, #f7f7f7);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Fix for Material sidenav overlay */
+.cdk-overlay-container {
+  z-index: 1000;
+}
+
+.cdk-global-overlay-wrapper {
+  z-index: 1000;
+}
+
+/* Material Dialog overrides */
+.mat-mdc-dialog-container {
+  --mdc-dialog-container-shape: var(--mq-border-radius-m, 8px);
+}
+
+/* Hide Material button ripples for cleaner GEL appearance */
+.mat-mdc-button .mat-mdc-button-ripple,
+.mat-mdc-raised-button .mat-mdc-button-ripple {
+  display: none;
+}
+```
+
+## src/index.html
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Loan Management App</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body class="mat-typography">
+  <app-root></app-root>
+</body>
+</html>
+```
+
+## tsconfig.app.json
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/app",
+    "types": []
+  },
+  "files": [
+    "src/main.ts"
+  ],
+  "include": [
+    "src/**/*.d.ts"
+  ]
+}
+```
+
+## tsconfig.spec.json
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/spec",
+    "types": [
+      "jasmine"
+    ]
+  },
+  "include": [
+    "src/**/*.spec.ts",
+    "src/**/*.d.ts"
+  ]
+}
+```
+
+## ANGULAR 19 SIGNALS IMPLEMENTATION HIGHLIGHTS
+
+### **🎯 Key Signals Features Implemented:**
+
+1. **Service State Management** 
+   - `AuthService`: User state, loading states, computed display names
+   - `DealService`: Deals array, search filtering, statistics calculations
+   - `UIStateService`: Drawer states, navigation state, theme management
+
+2. **Component Reactive State**
+   - `LoginComponent`: Form validation, error states
+   - `AddDealDrawerComponent`: Form data, validation, contacts management
+   - `SideNavComponent`: Hover states, selected items
+
+3. **Computed Signals for Derived State**
+   - `filteredDeals()`: Real-time search filtering
+   - `dealStats()`: Dynamic statistics calculation
+   - `isFormValid()`: Live form validation
+   - `displayName()`: User name concatenation
+
+4. **Effects for Side Effects**
+   - Auth token persistence to localStorage
+   - Deals persistence to localStorage
+   - Form state synchronization
+
+### **🚀 Benefits Over Previous RxJS Version:**
+
+- ✅ **Simpler Mental Model**: No subscriptions to manage
+- ✅ **Automatic Cleanup**: No need to unsubscribe
+- ✅ **Fine-grained Reactivity**: Only updates what actually changed
+- ✅ **Better Performance**: Angular's optimized change detection
+- ✅ **Type Safety**: Full TypeScript support
+- ✅ **Synchronous State**: Easy to debug and reason about
+
+### **📦 Setup Instructions:**
+
+```bash
+npm install
+ng generate service services/auth
+ng generate service services/deal  
+ng generate service services/ui-state
+ng generate guard guards/auth
+ng generate component components/login
+ng generate component components/global-header
+ng generate component components/side-nav
+ng generate component components/dashboard
+ng generate component components/deals
+ng generate component components/add-deal-drawer
+ng generate component components/confirmation-dialog
+ng serve
+```
+
+**Login:** admin / password
+
+The application now uses Angular 19 signals throughout for modern, reactive state management!
+                  # LOAN MANAGEMENT APPLICATION - WITH ANGULAR 19 SIGNALS
+
+## package.json
+```json
+{
+  "name": "loan-management-app",
+  "version": "19.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "test": "ng test",
+    "lint": "ng lint",
+    "e2e": "ng e2e"
+  },
+  "dependencies": {
+    "@angular/animations": "^19.0.0",
+    "@angular/cdk": "^19.0.0",
+    "@angular/common": "^19.0.0",
+    "@angular/compiler": "^19.0.0",
+    "@angular/core": "^19.0.0",
+    "@angular/forms": "^19.0.0",
+    "@angular/material": "^19.0.0",
+    "@angular/platform-browser": "^19.0.0",
+    "@angular/platform-browser-dynamic": "^19.0.0",
+    "@angular/router": "^19.0.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.14.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^19.0.0",
+    "@angular/cli": "^19.0.0",
+    "@angular/compiler-cli": "^19.0.0",
+    "@types/node": "^18.7.0",
+    "typescript": "~5.6.0"
+  }
+}
+```
+
+## angular.json
+```json
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "loan-management-app": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss",
+          "standalone": true
+        }
+      },
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:browser",
+          "options": {
+            "outputPath": "dist/loan-management-app",
+            "index": "src/index.html",
+            "main": "src/main.ts",
+            "polyfills": "src/polyfills.ts",
+            "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              "src/favicon.ico",
+              "src/assets"
+            ],
+            "styles": [
+              "@angular/material/prebuilt-themes/azure-blue.css",
+              "src/styles.scss"
+            ],
+            "scripts": []
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "2kb",
+                  "maximumError": "4kb"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "buildOptimizer": false,
+              "optimization": false,
+              "vendorChunk": true,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "namedChunks": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "loan-management-app:build:production"
+            },
+            "development": {
+              "buildTarget": "loan-management-app:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "extract-i18n": {
+          "builder": "@angular-devkit/build-angular:extract-i18n",
+          "options": {
+            "buildTarget": "loan-management-app:build"
+          }
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "polyfills": "src/polyfills.ts",
+            "tsConfig": "tsconfig.spec.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              "src/favicon.ico",
+              "src/assets"
+            ],
+            "styles": [
+              "@angular/material/prebuilt-themes/azure-blue.css",
+              "src/styles.scss"
+            ],
+            "scripts": []
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## tsconfig.json
+```json
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "outDir": "./dist/out-tsc",
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "declaration": false,
+    "experimentalDecorators": true,
+    "moduleResolution": "bundler",
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "useDefineForClassFields": false,
+    "lib": [
+      "ES2022",
+      "dom"
+    ]
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "strictTemplates": true
+  }
+}
+```
+
+## src/main.ts
+```typescript
+import { bootstrapApplication } from '@angular/platform-browser';
+import { AppComponent } from './app/app.component';
+import { provideRouter } from '@angular/router';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { routes } from './app/app.routes';
+
+bootstrapApplication(AppComponent, {
+  providers: [
+    provideRouter(routes),
+    provideAnimationsAsync()
+  ]
+}).catch(err => console.error(err));
+```
+
+## src/app/app.routes.ts
+```typescript
+import { Routes } from '@angular/router';
+import { LoginComponent } from './components/login/login.component';
+import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { DealsComponent } from './components/deals/deals.component';
+import { AuthGuard } from './guards/auth.guard';
+
+export const routes: Routes = [
+  { path: 'login', component: LoginComponent },
+  { 
+    path: 'dashboard', 
+    component: DashboardComponent, 
+    canActivate: [AuthGuard],
+    children: [
+      { path: 'deals', component: DealsComponent },
+      { path: '', redirectTo: 'deals', pathMatch: 'full' }
+    ]
+  },
+  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { path: '**', redirectTo: '/login' }
+];
+```
+
+## src/app/app.component.ts
+```typescript
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [RouterOutlet],
+  template: `<router-outlet></router-outlet>`,
+  styles: [`
+    :host {
+      display: block;
+      height: 100vh;
+    }
+  `]
+})
+export class AppComponent {
+  title = 'loan-management-app';
+}
+```
+
+## src/app/guards/auth.guard.ts
+```typescript
+import { Injectable } from '@angular/core';
+import { CanActivate, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class AuthGuard implements CanActivate {
+  constructor(private authService: AuthService, private router: Router) {}
+
+  canActivate(): boolean {
+    if (this.authService.isAuthenticated()) {
+      return true;
+    } else {
+      this.router.navigate(['/login']);
+      return false;
+    }
+  }
+}
+```
+
+## src/app/services/auth.service.ts
+```typescript
+import { Injectable, signal, computed, effect } from '@angular/core';
+import { Observable, of, delay, map } from 'rxjs';
+
+export interface User {
+  firstName: string;
+  lastName: string;
   role: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  token?: string;
+  user?: User;
+  error?: string;
 }
 
 export interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
-
-export interface LoginRequest {
-  networkID: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  user: User;
-  token: string;
-}
-```
-
-## 2. Styles
-
-### _tokens.scss
-```scss
-// src/styles/_tokens.scss
-
-// Colors
-$color-primary: var(--mq-color-primary);
-$color-secondary: var(--mq-color-secondary);
-$color-background: var(--mq-color-background);
-$color-surface: var(--mq-color-surface);
-$color-text: var(--mq-color-text-primary);
-$color-text-secondary: var(--mq-color-text-secondary);
-$color-error: var(--mq-color-error);
-$color-border: var(--mq-color-border);
-
-// Spacing
-$space-xs: var(--mq-space-xs);
-$space-s: var(--mq-space-s);
-$space-m: var(--mq-space-m);
-$space-l: var(--mq-space-l);
-$space-xl: var(--mq-space-xl);
-$space-2xl: var(--mq-space-2xl);
-
-// Typography
-$font-family: var(--mq-font-family-primary);
-$font-size-s: var(--mq-font-size-s);
-$font-size-m: var(--mq-font-size-m);
-$font-size-l: var(--mq-font-size-l);
-$font-weight-regular: var(--mq-font-weight-regular);
-$font-weight-medium: var(--mq-font-weight-medium);
-$font-weight-bold: var(--mq-font-weight-bold);
-
-// Borders & Radius
-$border-radius-s: var(--mq-border-radius-s);
-$border-radius-m: var(--mq-border-radius-m);
-$border-width: var(--mq-border-width-normal);
-
-// Effects
-$shadow-s: var(--mq-shadow-s);
-$shadow-m: var(--mq-shadow-m);
-
-// Layout
-$header-height: var(--mq-header-height, 64px);
-$sidebar-width: var(--mq-sidebar-width, 250px);
-```
-
-### styles.scss
-```scss
-@use 'tokens' as tokens;
-
-html, body {
-  font-family: tokens.$font-family;
-  font-size: tokens.$font-size-m;
-  color: tokens.$color-text;
-  background-color: tokens.$color-background;
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  margin-top: 0;
-  margin-bottom: tokens.$space-m;
-  font-weight: tokens.$font-weight-bold;
-}
-
-a {
-  color: tokens.$color-primary;
-  text-decoration: none;
-  
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-// Basic utility classes
-.mt-s { margin-top: tokens.$space-s; }
-.mt-m { margin-top: tokens.$space-m; }
-.mt-l { margin-top: tokens.$space-l; }
-
-.mb-s { margin-bottom: tokens.$space-s; }
-.mb-m { margin-bottom: tokens.$space-m; }
-.mb-l { margin-bottom: tokens.$space-l; }
-
-// Custom scrollbar
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-  }
-}
-```
-
-### app.component.scss
-```scss
-@use 'src/styles/tokens' as tokens;
-
-.app-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  width: 100%;
-  overflow: hidden;
-}
-
-.app-content {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-.app-sidebar {
-  width: tokens.$sidebar-width;
-  height: 100%;
-  flex-shrink: 0;
-}
-
-.main-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: tokens.$space-m;
-}
-```
-
-# Angular 19 Project Implementation - Part 2 of 4
-
-## 3. Core Services
-
-### config.service.ts
-```typescript
-import { Injectable, signal, computed } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { AppConfig, PageConfig } from '../../config/app-config.model';
-import { APP_CONFIG } from '../../config/app-config';
-import { toObservable } from '@angular/core/rxjs-interop';
-import { firstValueFrom } from 'rxjs';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class ConfigService {
-  private configSignal = signal<AppConfig>(APP_CONFIG);
-  
-  // Computed signals for derived state
-  public pages = computed(() => this.configSignal().pages);
-  public siteName = computed(() => this.configSignal().siteName);
-  public authEnabled = computed(() => this.configSignal().enableAuthentication);
-  
-  // Legacy Observable API for compatibility
-  public config$ = toObservable(this.configSignal);
-
-  constructor(private http: HttpClient) {}
-
-  async loadConfig(): Promise<void> {
-    try {
-      // Use firstValueFrom instead of toPromise()
-      const config = await firstValueFrom(
-        this.http.get<AppConfig>('assets/config/app-config.json')
-      );
-      this.configSignal.set(config);
-    } catch (error) {
-      console.error('Failed to load configuration', error);
-      // Keep the default config
-    }
-  }
-
-  getConfig(): AppConfig {
-    return this.configSignal();
-  }
-
-  getPages(): PageConfig[] {
-    return this.pages();
-  }
-  
-  isAuthenticationEnabled(): boolean {
-    return this.authEnabled();
-  }
-}
-```
-
-### auth.service.ts
-```typescript
-import { Injectable, signal, computed } from '@angular/core';
-import { Router } from '@angular/router';
-import { User, AuthState, LoginRequest, LoginResponse } from '../models/user.model';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  // Define valid roles and passwords
-  private readonly ROLE_PASSWORDS = {
-    'user': 'user',
-    'admin': 'admin',
-    'siteadmin': 'siteadmin'
-  };
+  private readonly TOKEN_KEY = 'loan_app_token';
 
-  // Initial state
-  private authStateSignal = signal<AuthState>({
+  // Private writable signals for internal state management
+  private readonly _state = signal<AuthState>({
     user: null,
     token: null,
-    isAuthenticated: false
+    isAuthenticated: false,
+    isLoading: false
   });
 
-  // Computed signals for derived state
-  public user = computed(() => this.authStateSignal().user);
-  public isAuthenticated = computed(() => this.authStateSignal().isAuthenticated);
-  public userRole = computed(() => this.authStateSignal().user?.role || null);
+  // Public readonly signals for components to consume
+  readonly user = computed(() => this._state().user);
+  readonly token = computed(() => this._state().token);
+  readonly isAuthenticated = computed(() => this._state().isAuthenticated);
+  readonly isLoading = computed(() => this._state().isLoading);
+  readonly displayName = computed(() => {
+    const user = this.user();
+    return user ? `${user.firstName} ${user.lastName}` : 'Guest';
+  });
 
-  constructor(private router: Router) {
-    // Load auth state from local storage on initialization
-    this.loadAuthState();
+  constructor() {
+    // Initialize auth state from localStorage on service creation
+    this.initializeAuthState();
+
+    // Effect to sync token changes to localStorage
+    effect(() => {
+      const token = this.token();
+      if (token) {
+        localStorage.setItem(this.TOKEN_KEY, token);
+      } else {
+        localStorage.removeItem(this.TOKEN_KEY);
+      }
+    });
   }
 
-  /**
-   * Mock login functionality with specific role passwords
-   */
-  login(credentials: LoginRequest): Promise<LoginResponse> {
-    return new Promise((resolve, reject) => {
-      // Simulate API call delay
-      setTimeout(() => {
-        // Check if password matches any of the role-specific passwords
-        const matchingRole = Object.entries(this.ROLE_PASSWORDS)
-          .find(([role, password]) => password === credentials.password);
+  login(username: string, password: string): Observable<LoginResponse> {
+    this.setLoading(true);
+    
+    return of(null).pipe(
+      delay(1500),
+      map(() => {
+        this.setLoading(false);
         
-        if (matchingRole) {
-          const [role, _] = matchingRole;
-          
+        if (username === 'admin' && password === 'password') {
           const user: User = {
-            id: this.generateUserId(),
-            networkID: credentials.networkID,
-            role: role
+            firstName: 'Alistair',
+            lastName: 'Guthrie',
+            role: 'administrator'
           };
           
-          // Generate mock token
-          const token = `mock-jwt-token-${Date.now()}-${user.id}-${role}`;
-          
-          // Update auth state
-          this.authStateSignal.set({
-            user,
-            token,
-            isAuthenticated: true
+          const mockToken = this.generateMockJWT({
+            sub: 'admin',
+            name: 'Alistair Guthrie',
+            role: 'administrator',
+            exp: Date.now() + (24 * 60 * 60 * 1000)
           });
           
-          // Save to local storage
-          this.saveAuthState();
+          this.setAuthenticatedUser(user, mockToken);
           
-          resolve({ user, token });
+          return {
+            success: true,
+            token: mockToken,
+            user
+          };
         } else {
-          reject(new Error('Invalid credentials. Please use one of the role-specific passwords.'));
+          return {
+            success: false,
+            error: 'Invalid username or password'
+          };
         }
-      }, 800); // Simulate network delay
-    });
+      })
+    );
   }
 
-  /**
-   * Logout the current user
-   */
   logout(): void {
-    // Clear auth state
-    this.authStateSignal.set({
+    this._state.set({
       user: null,
       token: null,
-      isAuthenticated: false
+      isAuthenticated: false,
+      isLoading: false
     });
-    
-    // Clear from local storage
-    localStorage.removeItem('auth_state');
-    
-    // Redirect to login
-    this.router.navigate(['/login']);
   }
 
-  /**
-   * Get available roles for display or documentation
-   */
-  getAvailableRoles(): string[] {
-    return Object.keys(this.ROLE_PASSWORDS);
+  getCurrentUser(): User | null {
+    return this.user();
   }
 
-  /**
-   * Save authentication state to local storage
-   */
-  private saveAuthState(): void {
-    localStorage.setItem('auth_state', JSON.stringify(this.authStateSignal()));
-  }
-
-  /**
-   * Load authentication state from local storage
-   */
-  private loadAuthState(): void {
-    const storedState = localStorage.getItem('auth_state');
-    if (storedState) {
+  // Private helper methods
+  private initializeAuthState(): void {
+    const token = localStorage.getItem(this.TOKEN_KEY);
+    if (token) {
       try {
-        const parsedState = JSON.parse(storedState);
-        this.authStateSignal.set(parsedState);
-      } catch (error) {
-        console.error('Failed to parse stored auth state', error);
-        // If parsing fails, clear the storage
-        localStorage.removeItem('auth_state');
+        const payload = this.decodeToken(token);
+        if (payload.exp > Date.now()) {
+          const user: User = {
+            firstName: 'Alistair',
+            lastName: 'Guthrie',
+            role: payload.role
+          };
+          this.setAuthenticatedUser(user, token);
+        }
+      } catch {
+        // Invalid token, ignore
       }
     }
   }
 
-  /**
-   * Check if user has a specific role
-   */
-  hasRole(role: string): boolean {
-    return this.userRole() === role;
+  private setLoading(loading: boolean): void {
+    this._state.update(state => ({ ...state, isLoading: loading }));
   }
 
-  /**
-   * Get the current authentication token
-   */
-  getToken(): string | null {
-    return this.authStateSignal().token;
+  private setAuthenticatedUser(user: User, token: string): void {
+    this._state.set({
+      user,
+      token,
+      isAuthenticated: true,
+      isLoading: false
+    });
   }
 
-  /**
-   * Generate a mock user ID
-   */
-  private generateUserId(): string {
-    return Math.floor(Math.random() * 10000).toString();
+  private generateMockJWT(payload: any): string {
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const encodedPayload = btoa(JSON.stringify(payload));
+    const signature = 'mock-signature';
+    return `${header}.${encodedPayload}.${signature}`;
+  }
+
+  private decodeToken(token: string): any {
+    const parts = token.split('.');
+    if (parts.length !== 3) throw new Error('Invalid token');
+    return JSON.parse(atob(parts[1]));
   }
 }
 ```
 
-## 4. Guards and Interceptors
-
-### auth.guard.ts
+## src/app/services/deal.service.ts
 ```typescript
-import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
-import { ConfigService } from '../services/config.service';
+import { Injectable, signal, computed, effect } from '@angular/core';
+import { Observable, of, delay, map } from 'rxjs';
 
-export const authGuard = () => {
-  const authService = inject(AuthService);
-  const configService = inject(ConfigService);
-  const router = inject(Router);
-  
-  // Skip authentication if disabled globally
-  if (!configService.isAuthenticationEnabled()) {
-    return true;
-  }
-  
-  if (authService.isAuthenticated()) {
-    return true;
-  }
-  
-  // Store the attempted URL for redirecting
-  const currentUrl = router.url !== '/login' ? router.url : '/';
-  return router.createUrlTree(['/login'], { queryParams: { returnUrl: currentUrl } });
-};
-```
+export interface Contact {
+  name: string;
+  role: string;
+}
 
-### admin.guard.ts
-```typescript
-import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
-import { ConfigService } from '../services/config.service';
+export interface Deal {
+  id?: string;
+  name: string;
+  logo?: string;
+  facilityLimit: number;
+  agent: string;
+  shortNames: string;
+  facility: string;
+  industry: string;
+  type: string;
+  status: string;
+  companyDescription: string;
+  contacts: Contact[];
+  createdDate?: Date;
+}
 
-export const adminGuard = () => {
-  const authService = inject(AuthService);
-  const configService = inject(ConfigService);
-  const router = inject(Router);
-  
-  // Skip authentication if disabled globally
-  if (!configService.isAuthenticationEnabled()) {
-    return true;
-  }
-  
-  // Allow access for admin and siteadmin roles
-  const adminRoles = ['admin', 'siteadmin'];
-  if (authService.isAuthenticated() && adminRoles.includes(authService.userRole() || '')) {
-    return true;
-  }
-  
-  // If user is authenticated but not admin/siteadmin, go to unauthorized page
-  if (authService.isAuthenticated()) {
-    return router.createUrlTree(['/unauthorized']);
-  }
-  
-  // Otherwise go to login
-  return router.createUrlTree(['/login']);
-};
-```
+export interface DealState {
+  deals: Deal[];
+  isLoading: boolean;
+  selectedDeal: Deal | null;
+  searchTerm: string;
+}
 
-### site-admin.guard.ts
-```typescript
-import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
-import { ConfigService } from '../services/config.service';
+@Injectable({
+  providedIn: 'root'
+})
+export class DealService {
+  private readonly DEALS_KEY = 'loan_app_deals';
 
-export const siteAdminGuard = () => {
-  const authService = inject(AuthService);
-  const configService = inject(ConfigService);
-  const router = inject(Router);
-  
-  // Skip authentication if disabled globally
-  if (!configService.isAuthenticationEnabled()) {
-    return true;
-  }
-  
-  // Only allow access for siteadmin role
-  if (authService.isAuthenticated() && authService.hasRole('siteadmin')) {
-    return true;
-  }
-  
-  // If user is authenticated but not siteadmin, go to unauthorized page
-  if (authService.isAuthenticated()) {
-    return router.createUrlTree(['/unauthorized']);
-  }
-  
-  // Otherwise go to login
-  return router.createUrlTree(['/login']);
-};
-```
+  // Private state signal
+  private readonly _state = signal<DealState>({
+    deals: [],
+    isLoading: false,
+    selectedDeal: null,
+    searchTerm: ''
+  });
 
-### auth.interceptor.ts
-```typescript
-import { HttpInterceptorFn, HttpRequest, HttpHandlerFn } from '@angular/common/http';
-import { inject } from '@angular/core';
-import { AuthService } from '../services/auth.service';
+  // Public readonly signals
+  readonly deals = computed(() => this._state().deals);
+  readonly isLoading = computed(() => this._state().isLoading);
+  readonly selectedDeal = computed(() => this._state().selectedDeal);
+  readonly searchTerm = computed(() => this._state().searchTerm);
 
-export const authInterceptor: HttpInterceptorFn = (
-  req: HttpRequest<unknown>, 
-  next: HttpHandlerFn
-) => {
-  const authService = inject(AuthService);
-  const token = authService.getToken();
-  
-  if (token) {
-    // Clone the request and add the token
-    const authReq = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`
+  // Computed filtered deals based on search term
+  readonly filteredDeals = computed(() => {
+    const deals = this.deals();
+    const search = this.searchTerm().toLowerCase().trim();
+    
+    if (!search) return deals;
+    
+    return deals.filter(deal =>
+      deal.name.toLowerCase().includes(search) ||
+      deal.agent.toLowerCase().includes(search) ||
+      deal.industry.toLowerCase().includes(search) ||
+      deal.shortNames.toLowerCase().includes(search)
+    );
+  });
+
+  // Computed statistics
+  readonly dealStats = computed(() => {
+    const deals = this.deals();
+    return {
+      total: deals.length,
+      totalFacilityAmount: deals.reduce((sum, deal) => sum + deal.facilityLimit, 0),
+      byStatus: deals.reduce((acc, deal) => {
+        acc[deal.status] = (acc[deal.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      byIndustry: deals.reduce((acc, deal) => {
+        acc[deal.industry] = (acc[deal.industry] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    };
+  });
+
+  constructor() {
+    // Initialize deals from localStorage
+    this.initializeDeals();
+
+    // Effect to persist deals to localStorage whenever deals change
+    effect(() => {
+      const deals = this.deals();
+      if (deals.length > 0) {
+        this.saveDealsToStorage(deals);
       }
     });
-    return next(authReq);
   }
-  
-  return next(req);
-};
-```
 
-# Angular 19 Project Implementation - Part 3 of 4
+  // Public methods for updating state
+  setSearchTerm(searchTerm: string): void {
+    this._state.update(state => ({ ...state, searchTerm }));
+  }
 
-## 5. Core Components
+  selectDeal(deal: Deal | null): void {
+    this._state.update(state => ({ ...state, selectedDeal: deal }));
+  }
 
-### header.component.ts
-```typescript
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { NgClass } from '@angular/common';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatMenuModule } from '@angular/material/menu';
-import { User } from '../../models/user.model';
-
-@Component({
-  selector: 'app-header',
-  standalone: true,
-  imports: [MatToolbarModule, MatIconModule, MatButtonModule, MatMenuModule, NgClass],
-  template: `
-    <mat-toolbar color="primary" class="header">
-      <div class="brand">
-        <span class="site-name">{{ siteName }}</span>
-      </div>
-      
-      <div class="header-actions">
-        @if (user) {
-          <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-button">
-            <mat-icon>account_circle</mat-icon>
-            <span class="username">
-              {{ user.networkID }}
-              <span class="role-badge" [ngClass]="'role-' + user.role">{{ user.role }}</span>
-            </span>
-          </button>
-          <mat-menu #userMenu="matMenu">
-            <button mat-menu-item (click)="logout.emit()">
-              <mat-icon>exit_to_app</mat-icon>
-              <span>Logout</span>
-            </button>
-          </mat-menu>
-        }
-      </div>
-    </mat-toolbar>
-  `,
-  styleUrls: ['./header.component.scss']
-})
-export class HeaderComponent {
-  @Input() siteName: string = 'Angular App';
-  @Input() user: User | null = null;
-  @Output() logout = new EventEmitter<void>();
-}
-```
-
-### header.component.scss
-```scss
-@use 'src/styles/tokens' as tokens;
-
-.header {
-  height: tokens.$header-height;
-  padding: 0 tokens.$space-m;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: tokens.$shadow-m;
-  z-index: 1000;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-}
-
-.site-name {
-  font-size: tokens.$font-size-l;
-  font-weight: tokens.$font-weight-medium;
-}
-
-.header-actions {
-  display: flex;
-  gap: tokens.$space-s;
-}
-
-.user-menu-button {
-  display: flex;
-  align-items: center;
-}
-
-.username {
-  margin-left: tokens.$space-s;
-}
-
-// Role badge styles
-.role-badge {
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  border-radius: 10px;
-  margin-left: 8px;
-  text-transform: uppercase;
-  font-weight: bold;
-}
-
-.role-user {
-  background-color: rgba(0, 200, 83, 0.7);
-}
-
-.role-admin {
-  background-color: rgba(255, 165, 0, 0.7);
-}
-
-.role-siteadmin {
-  background-color: rgba(255, 61, 0, 0.7);
-}
-```
-
-### sidebar.component.ts
-```typescript
-import { Component, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
-import { MatRippleModule } from '@angular/material/core';
-import { ConfigService } from '../../services/config.service';
-import { PageConfig } from '../../../config/app-config.model';
-
-@Component({
-  selector: 'app-sidebar',
-  standalone: true,
-  imports: [RouterLink, RouterLinkActive, MatIconModule, MatRippleModule],
-  template: `
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <div class="user-info">
-          <mat-icon>person</mat-icon>
-          <span>User Name</span>
-        </div>
-      </div>
-      
-      <div class="nav-items">
-        @for (item of pages(); track item.page) {
-          <a class="nav-item" 
-             [routerLink]="item.route" 
-             routerLinkActive="active" 
-             [routerLinkActiveOptions]="{exact: item.route === '/'}"
-             matRipple
-             (click)="item.children && toggleExpand(item.page)">
-            <mat-icon>{{item.iconName}}</mat-icon>
-            <span>{{item.title || item.page}}</span>
-            @if (item.children) {
-              <mat-icon class="expand-icon">
-                {{expandedItem() === item.page ? 'expand_less' : 'expand_more'}}
-              </mat-icon>
-            }
-          </a>
-          
-          @if (item.children && expandedItem() === item.page) {
-            <div class="subnav">
-              @for (child of item.children; track child.page) {
-                <a class="subnav-item" 
-                   [routerLink]="[item.route, child.route]"
-                   routerLinkActive="active"
-                   matRipple>
-                  @if (child.iconName) {
-                    <mat-icon>{{child.iconName}}</mat-icon>
-                  }
-                  <span>{{child.title || child.page}}</span>
-                </a>
-              }
-            </div>
-          }
-        }
-      </div>
-    </div>
-  `,
-  styleUrls: ['./sidebar.component.scss']
-})
-export class SidebarComponent {
-  pages = this.configService.pages;
-  expandedItem = signal<string | null>(null);
-  
-  constructor(private configService: ConfigService) {}
-  
-  toggleExpand(pageName: string): void {
-    this.expandedItem.update(current => 
-      current === pageName ? null : pageName
+  addDeal(deal: Deal): Observable<Deal> {
+    this.setLoading(true);
+    
+    return of(deal).pipe(
+      delay(2000),
+      map((deal: Deal) => {
+        const newDeal: Deal = {
+          ...deal,
+          id: this.generateId(),
+          createdDate: new Date()
+        };
+        
+        this._state.update(state => ({
+          ...state,
+          deals: [...state.deals, newDeal],
+          isLoading: false
+        }));
+        
+        return newDeal;
+      })
     );
   }
+
+  updateDeal(updatedDeal: Deal): void {
+    this._state.update(state => ({
+      ...state,
+      deals: state.deals.map(deal =>
+        deal.id === updatedDeal.id ? updatedDeal : deal
+      )
+    }));
+  }
+
+  deleteDeal(dealId: string): void {
+    this._state.update(state => ({
+      ...state,
+      deals: state.deals.filter(deal => deal.id !== dealId),
+      selectedDeal: state.selectedDeal?.id === dealId ? null : state.selectedDeal
+    }));
+  }
+
+  // Private helper methods
+  private setLoading(loading: boolean): void {
+    this._state.update(state => ({ ...state, isLoading: loading }));
+  }
+
+  private initializeDeals(): void {
+    const savedDeals = this.getDealsFromStorage();
+    this._state.update(state => ({ ...state, deals: savedDeals }));
+  }
+
+  private getDealsFromStorage(): Deal[] {
+    const deals = localStorage.getItem(this.DEALS_KEY);
+    return deals ? JSON.parse(deals) : this.getMockDeals();
+  }
+
+  private saveDealsToStorage(deals: Deal[]): void {
+    localStorage.setItem(this.DEALS_KEY, JSON.stringify(deals));
+  }
+
+  private generateId(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  }
+
+  private getMockDeals(): Deal[] {
+    return [
+      {
+        id: '1',
+        name: 'ARM Energy',
+        facilityLimit: 250000000,
+        agent: 'Bank of America',
+        shortNames: 'ARM-001',
+        facility: 'Revolver',
+        industry: 'Energy',
+        type: 'Syndication',
+        status: 'Lender',
+        companyDescription: 'Renewable energy development company',
+        contacts: [
+          { name: 'John Smith', role: 'CFO' },
+          { name: 'Jane Doe', role: 'Treasurer' }
+        ],
+        createdDate: new Date('2024-01-15')
+      },
+      {
+        id: '2',
+        name: 'Marco',
+        facilityLimit: 150000000,
+        agent: 'JPMorgan Chase',
+        shortNames: 'MAR-002',
+        facility: 'Transactional',
+        industry: 'Metals',
+        type: 'Bilateral',
+        status: 'Agent',
+        companyDescription: 'Metal trading and commodity services',
+        contacts: [
+          { name: 'Michael Johnson', role: 'CEO' }
+        ],
+        createdDate: new Date('2024-02-20')
+      }
+    ];
+  }
 }
 ```
 
-### sidebar.component.scss
-```scss
-@use 'src/styles/tokens' as tokens;
-
-.sidebar {
-  height: 100%;
-  background-color: tokens.$color-background;
-  display: flex;
-  flex-direction: column;
-  border-right: tokens.$border-width solid tokens.$color-border;
-}
-
-.sidebar-header {
-  padding: tokens.$space-m;
-  border-bottom: tokens.$border-width solid tokens.$color-border;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: tokens.$space-s;
-}
-
-.nav-items {
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  padding: tokens.$space-s tokens.$space-m;
-  text-decoration: none;
-  color: tokens.$color-text;
-  gap: tokens.$space-m;
-  
-  &.active {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: tokens.$color-primary;
-  }
-  
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.03);
-  }
-}
-
-.expand-icon {
-  margin-left: auto;
-}
-
-.subnav {
-  background-color: rgba(0, 0, 0, 0.02);
-}
-
-.subnav-item {
-  display: flex;
-  align-items: center;
-  padding: tokens.$space-xs tokens.$space-m tokens.$space-xs tokens.$space-2xl;
-  text-decoration: none;
-  color: tokens.$color-text;
-  gap: tokens.$space-s;
-  
-  &.active {
-    color: tokens.$color-primary;
-  }
-  
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.03);
-  }
-}
-```
-
-## 6. Authentication Components
-
-### login.component.ts
+## src/app/services/ui-state.service.ts
 ```typescript
-import { Component, signal } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { AuthService } from '../../../core/services/auth.service';
+import { Injectable, signal, computed } from '@angular/core';
+
+export interface DrawerState {
+  isAddDealOpen: boolean;
+  isUserMenuOpen: boolean;
+}
+
+export interface NavigationState {
+  selectedNavItem: string;
+  sideNavCollapsed: boolean;
+}
+
+export interface UIState {
+  drawer: DrawerState;
+  navigation: NavigationState;
+  theme: 'light' | 'dark';
+}
+
+@Injectable({
+  providedIn: 'root'
+})
+export class UIStateService {
+  // Private writable state
+  private readonly _state = signal<UIState>({
+    drawer: {
+      isAddDealOpen: false,
+      isUserMenuOpen: false
+    },
+    navigation: {
+      selectedNavItem: 'deals',
+      sideNavCollapsed: false
+    },
+    theme: 'light'
+  });
+
+  // Public readonly signals
+  readonly drawerState = computed(() => this._state().drawer);
+  readonly navigationState = computed(() => this._state().navigation);
+  readonly theme = computed(() => this._state().theme);
+  
+  // Specific computed values for convenience
+  readonly isAddDealOpen = computed(() => this._state().drawer.isAddDealOpen);
+  readonly selectedNavItem = computed(() => this._state().navigation.selectedNavItem);
+  readonly sideNavCollapsed = computed(() => this._state().navigation.sideNavCollapsed);
+
+  // Drawer actions
+  openAddDeal(): void {
+    this._state.update(state => ({
+      ...state,
+      drawer: { ...state.drawer, isAddDealOpen: true }
+    }));
+  }
+
+  closeAddDeal(): void {
+    this._state.update(state => ({
+      ...state,
+      drawer: { ...state.drawer, isAddDealOpen: false }
+    }));
+  }
+
+  toggleUserMenu(): void {
+    this._state.update(state => ({
+      ...state,
+      drawer: { ...state.drawer, isUserMenuOpen: !state.drawer.isUserMenuOpen }
+    }));
+  }
+
+  // Navigation actions
+  selectNavItem(item: string): void {
+    this._state.update(state => ({
+      ...state,
+      navigation: { ...state.navigation, selectedNavItem: item }
+    }));
+  }
+
+  toggleSideNav(): void {
+    this._state.update(state => ({
+      ...state,
+      navigation: { ...state.navigation, sideNavCollapsed: !state.navigation.sideNavCollapsed }
+    }));
+  }
+
+  // Theme actions
+  setTheme(theme: 'light' | 'dark'): void {
+    this._state.update(state => ({ ...state, theme }));
+  }
+
+  toggleTheme(): void {
+    this._state.update(state => ({
+      ...state,
+      theme: state.theme === 'light' ? 'dark' : 'light'
+    }));
+  }
+}
+```
+
+## src/app/components/login/login.component.ts
+```typescript
+import { Component, signal, computed } from '@angular/core';
+import { Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressBarModule
+    CommonModule,
+    FormsModule
   ],
   template: `
     <div class="login-container">
-      <mat-card class="login-card">
-        <mat-card-header>
-          <mat-card-title>Sign In</mat-card-title>
-        </mat-card-header>
+      <div class="login-card">
+        <div class="login-header">
+          <gel-logo 
+            appearance="co-brand"
+            data-theme="light"
+            size="lg"
+            label="PF"
+            labelSecondary="Platform">
+          </gel-logo>
+        </div>
         
-        @if (isLoading()) {
-          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-        }
-        
-        <mat-card-content>
-          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-            @if (errorMessage()) {
-              <div class="error-message">
-                {{ errorMessage() }}
-              </div>
-            }
+        <div class="login-content">
+          <gel-form name="login-form" action="#" (ngSubmit)="onLogin()" #loginForm="ngForm">
             
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Network ID</mat-label>
-              <input matInput formControlName="networkID" placeholder="Enter your network ID">
-              <mat-icon matSuffix>person</mat-icon>
-              @if (loginForm.get('networkID')?.hasError('required') && loginForm.get('networkID')?.touched) {
-                <mat-error>Network ID is required</mat-error>
-              }
-            </mat-form-field>
+            <gel-form-item layout="vertical" label="Username">
+              <gel-text-input
+                name="username"
+                [(ngModel)]="credentials().username"
+                (ngModelChange)="updateUsername($event)"
+                required="true"
+                [disabled]="authService.isLoading()"
+                size="lg">
+              </gel-text-input>
+            </gel-form-item>
             
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Password</mat-label>
-              <input 
-                matInput 
-                [type]="hidePassword() ? 'password' : 'text'" 
-                formControlName="password" 
-                placeholder="Enter your password"
-              >
-              <button 
-                type="button" 
-                mat-icon-button 
-                matSuffix 
-                (click)="togglePasswordVisibility()"
-              >
-                <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
-              </button>
-              @if (loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched) {
-                <mat-error>Password is required</mat-error>
-              }
-            </mat-form-field>
+            <gel-form-item layout="vertical" label="Password">
+              <gel-text-input
+                name="password"
+                inputType="password"
+                [(ngModel)]="credentials().password"
+                (ngModelChange)="updatePassword($event)"
+                required="true"
+                [disabled]="authService.isLoading()"
+                size="lg">
+              </gel-text-input>
+            </gel-form-item>
             
-            <div class="form-footer">
-              <button 
-                mat-raised-button 
-                color="primary" 
-                type="submit" 
-                [disabled]="loginForm.invalid || isLoading()"
-                class="full-width"
-              >
-                Sign In
-              </button>
+            <div class="error-message" *ngIf="errorMessage()">
+              {{ errorMessage() }}
             </div>
             
-            <div class="demo-accounts">
-              <h4>Login Information:</h4>
-              <div class="account-info">
-                <p>Enter any Network ID with one of these passwords:</p>
-                <p><strong>Standard User:</strong> "user"</p>
-                <p><strong>Admin:</strong> "admin"</p>
-                <p><strong>Site Admin:</strong> "siteadmin"</p>
-                <p class="note">Any other password will result in login failure.</p>
-              </div>
-            </div>
-          </form>
-        </mat-card-content>
-      </mat-card>
+            <gel-button 
+              hierarchy="primary"
+              size="lg"
+              [expand]="true"
+              [disabled]="!isFormValid() || authService.isLoading()"
+              type="submit">
+              <span *ngIf="!authService.isLoading()">Login</span>
+              <span *ngIf="authService.isLoading()">Authenticating...</span>
+            </gel-button>
+          </gel-form>
+          
+          <div class="demo-credentials">
+            <small>Demo credentials: admin / password</small>
+          </div>
+        </div>
+      </div>
     </div>
   `,
-  styleUrls: ['./login.component.scss']
+  styles: [`
+    .login-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: var(--mq-color-background-header-static, #333333);
+      padding: var(--mq-space-xl, 24px);
+    }
+    
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--mq-color-primary-white, #ffffff);
+      border-radius: var(--mq-border-radius-m, 8px);
+      box-shadow: var(--mq-shadow-l3-0, 0px 8px 16px 0px #0000001a);
+      overflow: hidden;
+    }
+    
+    .login-header {
+      text-align: center;
+      padding: var(--mq-space-2xl, 32px) var(--mq-space-xl, 24px) var(--mq-space-l, 16px);
+      background: var(--mq-color-primary-white, #ffffff);
+    }
+    
+    .login-content {
+      padding: var(--mq-space-xl, 24px);
+    }
+    
+    gel-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mq-space-l, 16px);
+    }
+    
+    .error-message {
+      color: var(--mq-color-text-negative, #b11d00);
+      font-size: 14px;
+      text-align: center;
+      padding: var(--mq-space-s, 8px);
+      background: var(--mq-color-tomato-100, #ffe8e3);
+      border-radius: var(--mq-border-radius-s, 4px);
+    }
+    
+    .demo-credentials {
+      text-align: center;
+      margin-top: var(--mq-space-l, 16px);
+      color: var(--mq-color-text-tertiary, #666666);
+    }
+  `]
 })
 export class LoginComponent {
-  loginForm: FormGroup;
-  isLoading = signal(false);
-  errorMessage = signal('');
-  hidePassword = signal(true);
-  returnUrl: string = '/';
-  
+  // Component signals for form state
+  private readonly _credentials = signal({
+    username: '',
+    password: ''
+  });
+  private readonly _errorMessage = signal('');
+
+  // Public readonly signals
+  readonly credentials = computed(() => this._credentials());
+  readonly errorMessage = computed(() => this._errorMessage());
+  readonly isFormValid = computed(() => {
+    const creds = this.credentials();
+    return creds.username.trim() !== '' && creds.password.trim() !== '';
+  });
+
   constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
-    private router: Router,
-    private route: ActivatedRoute
-  ) {
-    this.loginForm = this.fb.group({
-      networkID: ['', Validators.required],
-      password: ['', Validators.required]
-    });
-    
-    // Get return url from route parameters or default to '/'
-    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
-  }
-  
-  togglePasswordVisibility(): void {
-    this.hidePassword.update(value => !value);
-  }
-  
-  onSubmit(): void {
-    if (this.loginForm.invalid) {
-      return;
-    }
-    
-    this.isLoading.set(true);
-    this.errorMessage.set('');
-    
-    const credentials = this.loginForm.value;
-    
-    this.authService.login(credentials)
-      .then(() => {
-        this.router.navigateByUrl(this.returnUrl);
-      })
-      .catch(error => {
-        this.errorMessage.set(error.message || 'Login failed. Please check your credentials.');
-      })
-      .finally(() => {
-        this.isLoading.set(false);
-      });
-  }
-}
-```
-
-### login.component.scss
-```scss
-@use 'src/styles/tokens' as tokens;
-
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: tokens.$color-background;
-}
-
-.login-card {
-  width: 100%;
-  max-width: 400
-
-# Angular 19 Project Implementation - Part 3 of 4 (continued)
-
-### login.component.scss (continued)
-```scss
-.login-card {
-  width: 100%;
-  max-width: 400px;
-  margin: tokens.$space-l;
-  border-radius: tokens.$border-radius-m;
-}
-
-.full-width {
-  width: 100%;
-}
-
-.form-footer {
-  margin-top: tokens.$space-l;
-}
-
-.error-message {
-  background-color: rgba(tokens.$color-error, 0.1);
-  color: tokens.$color-error;
-  padding: tokens.$space-s;
-  margin-bottom: tokens.$space-m;
-  border-radius: tokens.$border-radius-s;
-}
-
-.demo-accounts {
-  margin-top: tokens.$space-l;
-  padding-top: tokens.$space-m;
-  border-top: tokens.$border-width solid tokens.$color-border;
-}
-
-.account-info {
-  background-color: rgba(tokens.$color-primary, 0.1);
-  padding: tokens.$space-s;
-  border-radius: tokens.$border-radius-s;
-  
-  p {
-    margin: tokens.$space-xs 0;
-  }
-}
-
-.note {
-  font-style: italic;
-  color: tokens.$color-error;
-  margin-top: tokens.$space-xs;
-}
-```
-
-### unauthorized.component.ts
-```typescript
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-
-@Component({
-  selector: 'app-unauthorized',
-  standalone: true,
-  imports: [RouterLink, MatButtonModule, MatIconModule],
-  template: `
-    <div class="unauthorized-container">
-      <div class="unauthorized-content">
-        <mat-icon class="lock-icon">lock</mat-icon>
-        <h1>Access Denied</h1>
-        <p>Sorry, you don't have permission to access this page.</p>
-        <div class="actions">
-          <button mat-raised-button color="primary" routerLink="/">
-            Go to Home
-          </button>
-        </div>
-      </div>
-    </div>
-  `,
-  styleUrls: ['./unauthorized.component.scss']
-})
-export class UnauthorizedComponent {}
-```
-
-### unauthorized.component.scss
-```scss
-@use 'src/styles/tokens' as tokens;
-
-.unauthorized-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  background-color: tokens.$color-background;
-}
-
-.unauthorized-content {
-  text-align: center;
-  padding: tokens.$space-l;
-  background-color: tokens.$color-surface;
-  border-radius: tokens.$border-radius-m;
-  box-shadow: tokens.$shadow-m;
-  max-width: 500px;
-}
-
-.lock-icon {
-  font-size: 4rem;
-  height: 4rem;
-  width: 4rem;
-  color: tokens.$color-error;
-  margin-bottom: tokens.$space-m;
-}
-
-h1 {
-  color: tokens.$color-text;
-  margin-bottom: tokens.$space-m;
-}
-
-.actions {
-  margin-top: tokens.$space-l;
-}
-```
-
-# Angular 19 Project Implementation - Part 4 of 4
-
-## 7. Main Application Components
-
-### app.component.ts
-```typescript
-import { Component } from '@angular/core';
-import { RouterOutlet, Router } from '@angular/router';
-import { HeaderComponent } from './core/components/header/header.component';
-import { SidebarComponent } from './core/components/sidebar/sidebar.component';
-import { ConfigService } from './core/services/config.service';
-import { AuthService } from './core/services/auth.service';
-
-@Component({
-  selector: 'app-root',
-  standalone: true,
-  imports: [RouterOutlet, HeaderComponent, SidebarComponent],
-  template: `
-    @if (shouldShowMainLayout()) {
-      <div class="app-container">
-        <!-- Fixed header -->
-        <app-header 
-          [siteName]="siteName()" 
-          [user]="authService.user()" 
-          (logout)="onLogout()"
-        ></app-header>
-        
-        <div class="app-content">
-          <!-- Fixed sidebar -->
-          <app-sidebar class="app-sidebar"></app-sidebar>
-          
-          <!-- Scrollable main content -->
-          <main class="main-content">
-            <router-outlet></router-outlet>
-          </main>
-        </div>
-      </div>
-    } @else {
-      <!-- Login/Auth routes don't show the app layout -->
-      <router-outlet></router-outlet>
-    }
-  `,
-  styleUrls: ['./app.component.scss']
-})
-export class AppComponent {
-  siteName = this.configService.siteName;
-  
-  constructor(
-    private configService: ConfigService,
     public authService: AuthService,
     private router: Router
   ) {}
-  
-  shouldShowMainLayout(): boolean {
-    const currentUrl = this.router.url;
-    // Don't show layout for login or unauthorized routes
-    if (currentUrl.includes('/login') || currentUrl.includes('/unauthorized')) {
-      return false;
-    }
-    
-    // Show layout if auth is disabled OR user is authenticated
-    return !this.configService.isAuthenticationEnabled() || 
-           this.authService.isAuthenticated();
+
+  updateUsername(username: string): void {
+    this._credentials.update(creds => ({ ...creds, username }));
+    this._errorMessage.set(''); // Clear error when user types
   }
-  
-  onLogout(): void {
-    this.authService.logout();
+
+  updatePassword(password: string): void {
+    this._credentials.update(creds => ({ ...creds, password }));
+    this._errorMessage.set(''); // Clear error when user types
   }
-}
-```
 
-### app.routes.ts
-```typescript
-import { Routes } from '@angular/router';
-import { APP_CONFIG } from './config/app-config';
-import { inject } from '@angular/core';
-
-// Import guard factory functions
-import { authGuard } from './core/guards/auth.guard';
-import { adminGuard } from './core/guards/admin.guard';
-import { siteAdminGuard } from './core/guards/site-admin.guard';
-
-// Map guard names to guard functions
-const guardMap: { [key: string]: any } = {
-  'AuthGuard': authGuard,
-  'AdminGuard': adminGuard,
-  'SiteAdminGuard': siteAdminGuard
-};
-
-// Function to resolve guards from names
-function resolveGuards(guardNames: string[] | undefined): any[] {
-  if (!guardNames) return [];
-  return guardNames.map(name => guardMap[name]);
-}
-
-// Function to process child routes recursively
-function processChildRoutes(parentPath: string, children: any[] | undefined): Routes {
-  if (!children) return [];
-  
-  return children.map(child => {
-    const route: any = {
-      path: child.route,
-      // For standalone components
-      loadComponent: () => import(`./features/${parentPath}/${child.page}/${child.page}.component`)
-        .then(m => {
-          const componentName = child.component || 
-            `${child.page.charAt(0).toUpperCase() + child.page.slice(1)}Component`;
-          return m[componentName];
-        })
-    };
+  onLogin(): void {
+    const { username, password } = this.credentials();
     
-    if (child.canActivate && child.canActivate.length) {
-      route.canActivate = resolveGuards(child.canActivate);
-    }
-    
-    if (child.children && child.children.length) {
-      route.children = processChildRoutes(`${parentPath}/${child.page}`, child.children);
-    }
-    
-    if (child.data) {
-      route.data = child.data;
-    }
-    
-    return route;
-  });
-}
-
-// Auth routes - add these manually since they're not part of the configurable pages
-const authRoutes: Routes = [
-  {
-    path: 'login',
-    loadComponent: () => import('./features/auth/login/login.component')
-      .then(m => m.LoginComponent)
-  },
-  {
-    path: 'unauthorized',
-    loadComponent: () => import('./features/auth/unauthorized/unauthorized.component')
-      .then(m => m.UnauthorizedComponent)
-  }
-];
-
-// Generate routes from config
-const configRoutes: Routes = APP_CONFIG.pages.map(page => {
-  const path = page.route === '/' ? '' : page.route.replace(/^\//, '');
-  const pagePath = page.page; // For the import path
-  
-  if (page.loadChildren) {
-    // Lazy-loaded routes
-    const route: any = {
-      path,
-      loadChildren: () => import(`./features/${pagePath}/${pagePath}.routes`)
-        .then(m => m.routes)
-    };
-    
-    if (page.canActivate && page.canActivate.length) {
-      route.canActivate = resolveGuards(page.canActivate);
-    }
-    
-    if (page.data) {
-      route.data = page.data;
-    }
-    
-    return route;
-  } else {
-    // Eagerly loaded component with possible children
-    const route: any = {
-      path,
-      loadComponent: () => import(`./features/${pagePath}/${pagePath}.component`)
-        .then(m => m[`${pagePath.charAt(0).toUpperCase() + pagePath.slice(1)}Component`])
-    };
-    
-    if (page.canActivate && page.canActivate.length) {
-      route.canActivate = resolveGuards(page.canActivate);
-    }
-    
-    if (page.children && page.children.length) {
-      route.children = processChildRoutes(pagePath, page.children);
-    }
-    
-    if (page.data) {
-      route.data = page.data;
-    }
-    
-    return route;
-  }
-});
-
-// Combine auth routes with config routes
-export const routes: Routes = [
-  ...authRoutes,
-  ...configRoutes,
-  // Add a fallback route
-  {
-    path: '**',
-    redirectTo: ''
-  }
-];
-```
-
-### app.config.ts
-```typescript
-import { ApplicationConfig } from '@angular/core';
-import { provideRouter, withViewTransitions } from '@angular/router';
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { provideAnimations } from '@angular/platform-browser/animations';
-import { routes } from './app.routes';
-import { APP_INITIALIZER } from '@angular/core';
-import { ConfigService } from './core/services/config.service';
-import { authInterceptor } from './core/interceptors/auth.interceptor';
-
-// Configuration loader factory
-export function initializeApp(configService: ConfigService) {
-  return () => configService.loadConfig();
-}
-
-export const appConfig: ApplicationConfig = {
-  providers: [
-    provideRouter(routes, withViewTransitions()),
-    provideHttpClient(withInterceptors([authInterceptor])),
-    provideAnimations(),
-    {
-      provide: APP_INITIALIZER,
-      useFactory: initializeApp,
-      deps: [ConfigService],
-      multi: true
-    }
-  ]
-};
-```
-
-## 8. Feature Components
-
-### home.component.ts
-```typescript
-import { Component } from '@angular/core';
-import { MatCardModule } from '@angular/material/card';
-import { MatButtonModule } from '@angular/material/button';
-
-@Component({
-  selector: 'app-home',
-  standalone: true,
-  imports: [MatCardModule, MatButtonModule],
-  template: `
-    <div class="home-container">
-      <h1>Welcome to the Application</h1>
-      
-      <div class="dashboard-cards">
-        @for (i of [1, 2, 3, 4]; track i) {
-          <mat-card>
-            <mat-card-header>
-              <mat-card-title>Card {{i}}</mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <p>This is card {{i}} content. Add your dashboard content here.</p>
-            </mat-card-content>
-            <mat-card-actions>
-              <button mat-button color="primary">ACTION</button>
-            </mat-card-actions>
-          </mat-card>
+    this.authService.login(username, password).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.router.navigate(['/dashboard']);
+        } else {
+          this._errorMessage.set(response.error || 'Login failed');
         }
-      </div>
-    </div>
-  `,
-  styleUrls: ['./home.component.scss']
-})
-export class HomeComponent {}
-```
-
-### home.component.scss
-```scss
-@use 'src/styles/tokens' as tokens;
-
-.home-container {
-  padding: tokens.$space-m;
-}
-
-h1 {
-  margin-bottom: tokens.$space-l;
-}
-
-.dashboard-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: tokens.$space-m;
-}
-
-mat-card {
-  height: 100%;
-}
-```
-
-## 9. Feature Modules
-
-### activities.component.ts
-```typescript
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
-import { MatTabsModule } from '@angular/material/tabs';
-
-@Component({
-  selector: 'app-activities',
-  standalone: true,
-  imports: [RouterOutlet, MatTabsModule],
-  template: `
-    <div class="activities-container">
-      <h1>Activities</h1>
-      
-      <mat-tab-group>
-        <mat-tab label="All">
-          <div class="tab-content">
-            <router-outlet></router-outlet>
-          </div>
-        </mat-tab>
-        <mat-tab label="Favorites">
-          <div class="tab-content">
-            <p>Favorites content goes here.</p>
-          </div>
-        </mat-tab>
-        <mat-tab label="Recent">
-          <div class="tab-content">
-            <p>Recent content goes here.</p>
-          </div>
-        </mat-tab>
-      </mat-tab-group>
-    </div>
-  `,
-  styleUrls: ['./activities.component.scss']
-})
-export class ActivitiesComponent {}
-```
-
-### activities.component.scss
-```scss
-@use 'src/styles/tokens' as tokens;
-
-.activities-container {
-  padding: tokens.$space-m;
-}
-
-h1 {
-  margin-bottom: tokens.$space-m;
-}
-
-.tab-content {
-  padding: tokens.$space-m 0;
-}
-```
-
-### activities.routes.ts
-```typescript
-import { Routes } from '@angular/router';
-import { ActivitiesComponent } from './activities.component';
-import { adminGuard } from '../../core/guards/admin.guard';
-
-export const routes: Routes = [
-  {
-    path: '',
-    component: ActivitiesComponent,
-    children: [
-      {
-        path: '',
-        loadComponent: () => import('./activity-list/activity-list.component')
-          .then(m => m.ActivityListComponent)
       },
-      {
-        path: 'create',
-        loadComponent: () => import('./activity-create/activity-create.component')
-          .then(m => m.ActivityCreateComponent),
-        canActivate: [adminGuard]
-      },
-      {
-        path: ':id',
-        loadComponent: () => import('./activity-detail/activity-detail.component')
-          .then(m => m.ActivityDetailComponent)
+      error: (error) => {
+        this._errorMessage.set('An error occurred during login');
+        console.error('Login error:', error);
       }
-    ]
+    });
   }
-];
-```
-
-## 10. Main Entry Point
-
-### main.ts
-```typescript
-import { bootstrapApplication } from '@angular/platform-browser';
-import { AppComponent } from './app/app.component';
-import { appConfig } from './app/app.config';
-
-bootstrapApplication(AppComponent, appConfig)
-  .catch(err => console.error(err));
-```
-
-## 11. JSON Configuration File
-
-### app-config.json
-```json
-{
-  "siteName": "Angular 19 App",
-  "enableAuthentication": true,
-  "pages": [
-    { 
-      "page": "home", 
-      "route": "/", 
-      "iconName": "home", 
-      "title": "Home" 
-    },
-    { 
-      "page": "activities", 
-      "route": "/activities", 
-      "iconName": "assignment", 
-      "title": "Activities",
-      "canActivate": ["AuthGuard"],
-      "children": [
-        {
-          "page": "activityList",
-          "route": "",
-          "title": "All Activities"
-        },
-        {
-          "page": "activityDetail",
-          "route": ":id",
-          "title": "Activity Detail"
-        },
-        {
-          "page": "activityCreate",
-          "route": "create",
-          "title": "Create Activity",
-          "canActivate": ["AdminGuard"]
-        }
-      ]
-    },
-    {
-      "page": "settings",
-      "route": "/settings",
-      "iconName": "settings",
-      "title": "Settings",
-      "canActivate": ["AuthGuard"],
-      "children": [
-        {
-          "page": "profile",
-          "route": "profile",
-          "title": "User Profile"
-        },
-        {
-          "page": "security",
-          "route": "security",
-          "title": "Security Settings",
-          "canActivate": ["AdminGuard"]
-        }
-      ]
-    },
-    {
-      "page": "admin",
-      "route": "/admin",
-      "iconName": "admin_panel_settings",
-      "title": "Admin Dashboard",
-      "canActivate": ["AdminGuard"],
-      "children": [
-        {
-          "page": "users",
-          "route": "users",
-          "title": "User Management"
-        },
-        {
-          "page": "settings",
-          "route": "settings",
-          "title": "System Settings"
-        }
-      ]
-    },
-    {
-      "page": "system",
-      "route": "/system",
-      "iconName": "engineering",
-      "title": "System",
-      "canActivate": ["SiteAdminGuard"],
-      "children": [
-        {
-          "page": "configuration",
-          "route": "config",
-          "title": "Global Configuration"
-        },
-        {
-          "page": "logs",
-          "route": "logs",
-          "title": "System Logs"
-        }
-      ]
-    }
-  ]
 }
 ```
 
-This complete implementation provides you with a fully functional Angular 19 application featuring:
+## src/app/components/global-header/global-header.component.ts
+```typescript
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
+import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
-1. Configuration-driven routing
-2. Global authentication toggle
-3. Role-based access control with three roles (user, admin, siteadmin)
-4. Streamlined login screen without header/sidebar
-5. Token reference layer for improved styling
-6. Lazy-loaded features
-7. Responsive layout with fixed header, persistent sidebar, and scrollable content
-
-To run the application, use:
-```bash
-ng serve
-```
-
-To test different roles, log in with:
-- User role: any networkID + password "user"
-- Admin role: any networkID + password "admin"
-- Site Admin role: any networkID + password "siteadmin"
+@Component({
+  selector: 'app-global-header',
+  standalone: true,
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatMenuModule],
+  template: `
+    <header class="global-header">
+      <div class="header-left">
+        <gel-logo 
+          appearance="co-brand"
+          data-theme="dark"
+          size="sm"
+          region="en"
+          label="PF"
+          labelSecondary="Platform"
+          alignment="horizontal">
+        </gel-logo>
+      </div>
+      <div class="header-right">
+        <button mat-button [matMenuTriggerFor]="userMenu" class="user-button">
+          <span>{{ authService.displayName() }}</span>
+          <mat-icon>keyboard_arrow_down</mat-icon>
+        </button>
+        <mat-menu #userMenu="matMenu">
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            <span>Logout</span>
+          </button>
+        </mat-menu>
