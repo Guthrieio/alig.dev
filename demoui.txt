@@ -1,1767 +1,4 @@
-</div>
-    </header>
-  `,
-  styles: [`
-    .global-header {
-      grid-area: header;
-      background-color: var(--mq-color-background-header-static, #333333);
-      color: var(--mq-color-text-primary-inverse-static, #ffffff);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--mq-space-m, 16px) var(--mq-space-2xl, 32px);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    
-    .header-right {
-      margin-left: auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      min-width: 100px;
-      gap: var(--mq-space-s, 8px);
-      color: var(--mq-color-text-primary-inverse-static, #ffffff);
-    }
-    
-    .user-button {
-      color: var(--mq-color-text-primary-inverse-static, #ffffff);
-    }
-    
-    .header-left {
-      text-align: left;
-    }
-  `]
-})
-export class GlobalHeaderComponent {
-  constructor(
-    public authService: AuthService,
-    private router: Router
-  ) {}
-
-  logout(): void {
-    this.authService.logout();
-    this.router.navigate(['/login']);
-  }
-}
-```
-
-## src/app/components/side-nav/side-nav.component.ts
-```typescript
-import { Component, computed, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { UIStateService } from '../../services/ui-state.service';
-
-interface NavItem {
-  id: string;
-  name: string;
-  icon: string;
-  enabled: boolean;
-  route?: string;
-}
-
-@Component({
-  selector: 'app-side-nav',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
-    <nav class="side-nav">
-      <ul>
-        <li *ngFor="let item of navItems(); trackBy: trackByName"
-            [class.enabled]="item.enabled"
-            [class.disabled]="!item.enabled"
-            [class.selected]="selectedItem() === item.id"
-            [class.hovered]="hoveredItem() === item.id && item.enabled"
-            (mouseenter)="onNavItemMouseEnter(item)"
-            (mouseleave)="onNavItemMouseLeave()"
-            (click)="onNavItemClick(item)">
-          
-          <div *ngIf="item.enabled">
-            <gel-icon 
-              data-theme="dark" 
-              [name]="item.icon" 
-              size="md">
-            </gel-icon>
-            <gel-text 
-              data-theme="dark" 
-              size="s" 
-              removeMargins="true">
-              {{ item.name }}
-            </gel-text>
-          </div>
-          
-          <div *ngIf="!item.enabled">
-            <gel-icon 
-              data-theme="dark" 
-              [name]="item.icon" 
-              size="md"
-              appearance="disabled">
-            </gel-icon>
-            <gel-text 
-              data-theme="dark" 
-              size="s" 
-              removeMargins="true"
-              appearance="disabled">
-              {{ item.name }}
-            </gel-text>
-          </div>
-        </li>
-      </ul>
-      
-      <div class="site-status-container">
-        <div class="version-wrapper">
-          <gel-text size="s" appearance="disabled">v1.1.0</gel-text>
-        </div>
-      </div>
-    </nav>
-  `,
-  styles: [`
-    .side-nav {
-      display: flex;
-      flex-direction: column;
-      position: sticky;
-      top: 64px;
-      width: 88px;
-      height: calc(100vh - 64px);
-      background: var(--mq-color-background-header-static, #333333);
-      overflow: visible;
-      text-align: center;
-      color: var(--mq-color-text-primary-inverse-static, #ffffff);
-      z-index: 100;
-    }
-    
-    .site-status-container {
-      margin-top: auto;
-      display: flex;
-      flex-direction: column;
-      gap: var(--mq-space-xs, 4px);
-      justify-content: center;
-      padding-bottom: var(--mq-space-l, 16px);
-    }
-    
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    
-    li {
-      cursor: pointer;
-      padding: 11.5px var(--mq-space-s, 8px);
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--mq-space-xs, 4px);
-    }
-    
-    li gel-text {
-      margin: 0;
-    }
-    
-    li.selected {
-      background-color: var(--mq-color-brand-600, #0954a0);
-      color: var(--mq-color-text-primary-inverse-static, #ffffff);
-    }
-    
-    li.hovered {
-      background-color: var(--mq-color-interactive-background-tertiary-hover, #f7f7f7);
-      color: var(--mq-color-text-primary-inverse-static, #ffffff);
-    }
-    
-    li.disabled {
-      cursor: default;
-      opacity: 0.5;
-    }
-    
-    .version-wrapper {
-      display: flex;
-      justify-content: center;
-    }
-  `]
-})
-export class SideNavComponent {
-  private readonly _hoveredItem = signal<string | null>(null);
-
-  // Navigation items as a signal
-  private readonly _navItems = signal<NavItem[]>([
-    { id: 'activities', name: 'Activities', icon: 'assignment', enabled: false },
-    { id: 'deals', name: 'Deals', icon: 'account_balance', enabled: true, route: '/dashboard/deals' },
-    { id: 'covenants', name: 'Covenants', icon: 'gavel', enabled: false },
-    { id: 'deal-booking', name: 'Deal Booking', icon: 'book', enabled: false },
-    { id: 'documents', name: 'Documents', icon: 'description', enabled: false }
-  ]);
-
-  // Public readonly signals
-  readonly navItems = computed(() => this._navItems());
-  readonly hoveredItem = computed(() => this._hoveredItem());
-  readonly selectedItem = computed(() => this.uiState.selectedNavItem());
-
-  constructor(
-    private router: Router,
-    private uiState: UIStateService
-  ) {}
-
-  trackByName(index: number, item: NavItem): string {
-    return item.id;
-  }
-
-  onNavItemMouseEnter(item: NavItem): void {
-    if (item.enabled) {
-      this._hoveredItem.set(item.id);
-    }
-  }
-
-  onNavItemMouseLeave(): void {
-    this._hoveredItem.set(null);
-  }
-
-  onNavItemClick(item: NavItem): void {
-    if (item.enabled) {
-      this.uiState.selectNavItem(item.id);
-      if (item.route) {
-        this.router.navigate([item.route]);
-      }
-    }
-  }
-}
-```
-
-## src/app/components/dashboard/dashboard.component.ts
-```typescript
-import { Component, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
-import { GlobalHeaderComponent } from '../global-header/global-header.component';
-import { SideNavComponent } from '../side-nav/side-nav.component';
-import { AddDealDrawerComponent } from '../add-deal-drawer/add-deal-drawer.component';
-import { DealService } from '../../services/deal.service';
-import { UIStateService } from '../../services/ui-state.service';
-
-@Component({
-  selector: 'app-dashboard',
-  standalone: true,
-  imports: [
-    CommonModule,
-    RouterOutlet,
-    GlobalHeaderComponent,
-    SideNavComponent,
-    AddDealDrawerComponent
-  ],
-  template: `
-    <div class="dashboard-container">
-      <app-global-header></app-global-header>
-      
-      <div class="main-content">
-        <app-side-nav></app-side-nav>
-        
-        <div class="content-area">
-          <!-- Welcome Screen -->
-          <div class="welcome-section">
-            <h1>Welcome Screen (after you login) UI</h1>
-            
-            <div class="action-buttons">
-              <gel-text-input
-                placeholder="Search deals..."
-                size="md"
-                [value]="dealService.searchTerm()"
-                (valueChange)="onSearchChange($event)"
-                class="search-field">
-              </gel-text-input>
-              
-              <gel-button 
-                hierarchy="primary" 
-                (click)="openAddDeal()">
-                Add
-              </gel-button>
-              <gel-button 
-                hierarchy="secondary">
-                Remove
-              </gel-button>
-              <gel-button 
-                hierarchy="primary"
-                appearance="success">
-                Approver Workflow
-              </gel-button>
-            </div>
-            
-            <!-- Deal Statistics -->
-            <div class="stats-section" *ngIf="dealStats().total > 0">
-              <div class="stat-card">
-                <h3>Total Deals</h3>
-                <span class="stat-number">{{ dealStats().total }}</span>
-              </div>
-              <div class="stat-card">
-                <h3>Total Facility Amount</h3>
-                <span class="stat-number">{{ dealStats().totalFacilityAmount | currency:'USD':'symbol':'1.0-0' }}</span>
-              </div>
-            </div>
-            
-            <!-- Deals Table -->
-            <div class="deals-section">
-              <h2>Deals</h2>
-              <p class="deals-note">Deals are clickable, and go to Deal Home Page UI</p>
-              
-              <gel-table size="md">
-                <gel-table-row slot="header">
-                  <gel-table-header heading="Deals"></gel-table-header>
-                  <gel-table-header heading="Facility"></gel-table-header>
-                  <gel-table-header heading="Industry"></gel-table-header>
-                  <gel-table-header heading="Type"></gel-table-header>
-                  <gel-table-header heading="Status"></gel-table-header>
-                </gel-table-row>
-                
-                <gel-table-row 
-                  *ngFor="let deal of filteredDeals(); trackBy: trackByDeal"
-                  slot="body" 
-                  (click)="onDealClick(deal)"
-                  class="deal-row">
-                  <gel-table-cell>
-                    <gel-text size="m" class="deal-name">{{ deal.name }}</gel-text>
-                    <gel-text size="xs" class="deal-subtitle">{{ deal.shortNames }}</gel-text>
-                  </gel-table-cell>
-                  <gel-table-cell>
-                    <gel-text size="m">{{ deal.facility }}</gel-text>
-                  </gel-table-cell>
-                  <gel-table-cell>
-                    <gel-text size="m">{{ deal.industry }}</gel-text>
-                  </gel-table-cell>
-                  <gel-table-cell>
-                    <gel-text size="m">{{ deal.type }}</gel-text>
-                  </gel-table-cell>
-                  <gel-table-cell>
-                    <gel-badge [label]="deal.status"></gel-badge>
-                  </gel-table-cell>
-                </gel-table-row>
-              </gel-table>
-              
-              <div class="no-deals" *ngIf="filteredDeals().length === 0 && dealService.searchTerm()">
-                <gel-text size="m">No deals found matching "{{ dealService.searchTerm() }}"</gel-text>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Child Route Content -->
-          <router-outlet></router-outlet>
-        </div>
-      </div>
-      
-      <!-- Add Deal Drawer -->
-      <app-add-deal-drawer 
-        [isOpen]="uiState.isAddDealOpen()"
-        (openChange)="onAddDealOpenChange($event)"
-        (dealAdded)="onDealAdded($event)">
-      </app-add-deal-drawer>
-    </div>
-  `,
-  styles: [`
-    .dashboard-container {
-      display: grid;
-      grid-template-rows: auto 1fr;
-      height: 100vh;
-      background-color: var(--mq-color-grey-50, #f7f7f7);
-    }
-    
-    .main-content {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      height: 100%;
-      overflow: hidden;
-    }
-    
-    .content-area {
-      padding: var(--mq-space-xl, 24px);
-      overflow-y: auto;
-      background: var(--mq-color-grey-50, #f7f7f7);
-    }
-    
-    .welcome-section {
-      background: var(--mq-color-primary-white, #ffffff);
-      border-radius: var(--mq-border-radius-m, 8px);
-      padding: var(--mq-space-xl, 24px);
-      margin-bottom: var(--mq-space-xl, 24px);
-      box-shadow: var(--mq-shadow-l1-0, 0px 2px 2px 0px #0000001a);
-    }
-    
-    h1 {
-      font-size: 24px;
-      font-weight: 400;
-      margin-bottom: var(--mq-space-xl, 24px);
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .action-buttons {
-      display: flex;
-      gap: var(--mq-space-l, 16px);
-      align-items: center;
-      margin-bottom: var(--mq-space-2xl, 32px);
-      flex-wrap: wrap;
-    }
-    
-    .search-field {
-      min-width: 250px;
-    }
-    
-    .stats-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: var(--mq-space-l, 16px);
-      margin-bottom: var(--mq-space-2xl, 32px);
-    }
-    
-    .stat-card {
-      background: var(--mq-color-grey-50, #f7f7f7);
-      border-radius: var(--mq-border-radius-s, 4px);
-      padding: var(--mq-space-l, 16px);
-      text-align: center;
-    }
-    
-    .stat-card h3 {
-      margin: 0 0 var(--mq-space-s, 8px) 0;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--mq-color-text-tertiary, #666666);
-    }
-    
-    .stat-number {
-      font-size: 24px;
-      font-weight: 600;
-      color: var(--mq-color-text-brand, #0c6cce);
-    }
-    
-    .deals-section h2 {
-      font-size: 20px;
-      font-weight: 500;
-      margin-bottom: var(--mq-space-s, 8px);
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .deals-note {
-      color: var(--mq-color-text-tertiary, #666666);
-      font-style: italic;
-      margin-bottom: var(--mq-space-l, 16px);
-    }
-    
-    .deal-row {
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-    
-    .deal-row:hover {
-      background-color: var(--mq-color-grey-100, #f2f2f2);
-    }
-    
-    .deal-name {
-      color: var(--mq-color-text-brand, #0c6cce);
-      font-weight: 500;
-    }
-    
-    .deal-subtitle {
-      color: var(--mq-color-text-tertiary, #666666);
-    }
-    
-    .no-deals {
-      text-align: center;
-      padding: var(--mq-space-2xl, 32px);
-      color: var(--mq-color-text-tertiary, #666666);
-    }
-  `]
-})
-export class DashboardComponent {
-  // Computed signals from services
-  readonly filteredDeals = computed(() => this.dealService.filteredDeals());
-  readonly dealStats = computed(() => this.dealService.dealStats());
-
-  constructor(
-    public dealService: DealService,
-    public uiState: UIStateService
-  ) {}
-
-  trackByDeal(index: number, deal: any): string {
-    return deal.id || index.toString();
-  }
-
-  onSearchChange(searchTerm: string): void {
-    this.dealService.setSearchTerm(searchTerm);
-  }
-
-  openAddDeal(): void {
-    this.uiState.openAddDeal();
-  }
-
-  onAddDealOpenChange(isOpen: boolean): void {
-    if (!isOpen) {
-      this.uiState.closeAddDeal();
-    }
-  }
-
-  onDealAdded(deal: any): void {
-    console.log('New deal added:', deal);
-    this.uiState.closeAddDeal();
-  }
-
-  onDealClick(deal: any): void {
-    this.dealService.selectDeal(deal);
-    console.log('Deal clicked:', deal);
-    // TODO: Navigate to deal details page
-  }
-}
-```
-
-## src/app/components/deals/deals.component.ts
-```typescript
-import { Component, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { DealService } from '../../services/deal.service';
-
-@Component({
-  selector: 'app-deals',
-  standalone: true,
-  imports: [
-    CommonModule
-  ],
-  template: `
-    <div class="deals-container">
-      <h1>Loan Activities</h1>
-      
-      <!-- Activity Cards -->
-      <div class="activity-cards">
-        <div class="activity-card">
-          <h3>Today</h3>
-          <p>No activities scheduled for today</p>
-        </div>
-        
-        <div class="activity-card">
-          <h3>Tomorrow</h3>
-          <p>No activities scheduled for tomorrow</p>
-        </div>
-        
-        <div class="activity-card">
-          <h3>Month End</h3>
-          <p>No month-end activities</p>
-        </div>
-        
-        <div class="activity-card">
-          <h3>Overdue</h3>
-          <p>No overdue activities</p>
-        </div>
-      </div>
-      
-      <!-- My Loans Section -->
-      <div class="my-loans-section">
-        <div class="section-header">
-          <h2>My Loans</h2>
-          <gel-text-input
-            placeholder="Search loans..."
-            size="md"
-            [value]="dealService.searchTerm()"
-            (valueChange)="onSearchChange($event)"
-            class="search-field">
-          </gel-text-input>
-        </div>
-        
-        <div class="loans-table-container">
-          <gel-table size="md">
-            <gel-table-row slot="header">
-              <gel-table-header heading="Date"></gel-table-header>
-              <gel-table-header heading="Status"></gel-table-header>
-              <gel-table-header heading="Automated"></gel-table-header>
-              <gel-table-header heading="Activity"></gel-table-header>
-              <gel-table-header heading="Deal"></gel-table-header>
-              <gel-table-header heading="Approver"></gel-table-header>
-              <gel-table-header heading="Borrower"></gel-table-header>
-              <gel-table-header heading="Facility"></gel-table-header>
-              <gel-table-header heading="Loan Alias"></gel-table-header>
-              <gel-table-header heading="CCY"></gel-table-header>
-              <gel-table-header heading="Tran Amount"></gel-table-header>
-              <gel-table-header heading="Host Bank"></gel-table-header>
-              <gel-table-header heading="Agent"></gel-table-header>
-            </gel-table-row>
-            
-            <gel-table-row 
-              *ngFor="let deal of filteredDeals()"
-              slot="body">
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.createdDate | date:'shortDate' }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-badge [label]="deal.status"></gel-badge>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">-</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">-</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.name }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.agent }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.name }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.facility }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.shortNames }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">USD</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.facilityLimit | currency:'USD':'symbol':'1.0-0' }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.agent }}</gel-text>
-              </gel-table-cell>
-              <gel-table-cell>
-                <gel-text size="m">{{ deal.agent }}</gel-text>
-              </gel-table-cell>
-            </gel-table-row>
-          </gel-table>
-          
-          <div class="no-data" *ngIf="filteredDeals().length === 0">
-            <gel-text size="m" class="no-data-text">
-              <span *ngIf="!dealService.searchTerm()">No loan activities found</span>
-              <span *ngIf="dealService.searchTerm()">No loans found matching "{{ dealService.searchTerm() }}"</span>
-            </gel-text>
-          </div>
-        </div>
-        
-        <div class="pagination-info">
-          <gel-text size="s" appearance="disabled">{{ filteredDeals().length }} of {{ totalDeals() }}</gel-text>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .deals-container {
-      padding: var(--mq-space-xl, 24px);
-      max-width: 100%;
-    }
-    
-    h1 {
-      font-size: 28px;
-      font-weight: 400;
-      margin-bottom: var(--mq-space-xl, 24px);
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .activity-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: var(--mq-space-l, 16px);
-      margin-bottom: var(--mq-space-2xl, 32px);
-    }
-    
-    .activity-card {
-      background: var(--mq-color-primary-white, #ffffff);
-      border-radius: var(--mq-border-radius-m, 8px);
-      padding: var(--mq-space-xl, 24px);
-      box-shadow: var(--mq-shadow-l1-0, 0px 2px 2px 0px #0000001a);
-      min-height: 120px;
-    }
-    
-    .activity-card h3 {
-      margin: 0 0 var(--mq-space-m, 12px) 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .activity-card p {
-      margin: 0;
-      color: var(--mq-color-text-tertiary, #666666);
-      font-size: 14px;
-    }
-    
-    .my-loans-section {
-      background: var(--mq-color-primary-white, #ffffff);
-      border-radius: var(--mq-border-radius-m, 8px);
-      box-shadow: var(--mq-shadow-l1-0, 0px 2px 2px 0px #0000001a);
-    }
-    
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--mq-space-l, 16px) var(--mq-space-xl, 24px);
-      border-bottom: 1px solid var(--mq-color-grey-200, #d9d9d9);
-    }
-    
-    .section-header h2 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 500;
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .search-field {
-      width: 300px;
-    }
-    
-    .loans-table-container {
-      min-height: 400px;
-      overflow-x: auto;
-    }
-    
-    .no-data {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 200px;
-    }
-    
-    .no-data-text {
-      color: var(--mq-color-text-tertiary, #666666);
-      font-style: italic;
-    }
-    
-    .pagination-info {
-      padding: var(--mq-space-l, 16px) var(--mq-space-xl, 24px);
-      text-align: right;
-      border-top: 1px solid var(--mq-color-grey-200, #d9d9d9);
-    }
-  `]
-})
-export class DealsComponent {
-  // Computed signals from service
-  readonly filteredDeals = computed(() => this.dealService.filteredDeals());
-  readonly totalDeals = computed(() => this.dealService.deals().length);
-
-  constructor(public dealService: DealService) {}
-
-  onSearchChange(searchTerm: string): void {
-    this.dealService.setSearchTerm(searchTerm);
-  }
-}
-```
-
-## src/app/components/add-deal-drawer/add-deal-drawer.component.ts
-```typescript
-import { Component, EventEmitter, Input, Output, signal, computed, effect } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { Deal, Contact, DealService } from '../../services/deal.service';
-import { ConfirmationDialogComponent } from '../confirmation-dialog/confirmation-dialog.component';
-
-@Component({
-  selector: 'app-add-deal-drawer',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    MatSidenavModule,
-    MatProgressSpinnerModule,
-    MatDialogModule
-  ],
-  template: `
-    <mat-sidenav-container class="drawer-container">
-      <mat-sidenav 
-        #drawer
-        position="end"
-        mode="over"
-        [opened]="isOpen"
-        [disableClose]="false"
-        class="add-deal-drawer"
-        (openedChange)="handleOpenedChange($event)">
-        
-        <div class="drawer-header">
-          <h2>Add Deal UI</h2>
-          <gel-button 
-            hierarchy="secondary" 
-            size="sm" 
-            icon-left="close"
-            (click)="close()">
-          </gel-button>
-        </div>
-        
-        <div class="drawer-content">
-          <gel-form name="deal-form" action="#" (ngSubmit)="onSubmit()" #dealForm="ngForm">
-            
-            <gel-form-item layout="vertical" label="Name">
-              <gel-text-input
-                name="name"
-                [value]="formData().name"
-                (valueChange)="updateFormField('name', $event)"
-                required="true"
-                placeholder="Enter deal name">
-              </gel-text-input>
-            </gel-form-item>
-            
-            <gel-form-item layout="vertical" label="Logo">
-              <gel-text-input
-                name="logo"
-                [value]="formData().logo"
-                (valueChange)="updateFormField('logo', $event)"
-                placeholder="ability to download picture for logo">
-              </gel-text-input>
-            </gel-form-item>
-            
-            <gel-form-item layout="vertical" label="Facility Limit">
-              <gel-text-input
-                name="facilityLimit"
-                inputType="number"
-                [value]="formData().facilityLimit.toString()"
-                (valueChange)="updateFormField('facilityLimit', +$event)"
-                required="true"
-                placeholder="Enter facility limit">
-              </gel-text-input>
-            </gel-form-item>
-            
-            <div class="form-row">
-              <gel-form-item layout="vertical" label="Agent" class="agent-field">
-                <gel-text-input
-                  name="agent"
-                  [value]="formData().agent"
-                  (valueChange)="updateFormField('agent', $event)"
-                  required="true"
-                  placeholder="Enter agent">
-                </gel-text-input>
-              </gel-form-item>
-              
-              <div class="prorate-section">
-                <span class="prorate-label">Prorate Share</span>
-                <gel-checkbox 
-                  [checked]="prorateManual()"
-                  (checkedChange)="setProrateManual($event)">
-                </gel-checkbox>
-              </div>
-            </div>
-            
-            <gel-form-item layout="vertical" label="Short Names">
-              <gel-text-input
-                name="shortNames"
-                [value]="formData().shortNames"
-                (valueChange)="updateFormField('shortNames', $event)"
-                required="true"
-                placeholder="This is the unique ID that is used in LoanIQ">
-              </gel-text-input>
-            </gel-form-item>
-            
-            <gel-form-item layout="vertical" label="Facility">
-              <gel-dropdown 
-                [selectedItemId]="formData().facility"
-                (selectionChange)="updateFormField('facility', $event)"
-                name="facility"
-                label="Select facility type">
-                <gel-dropdown-item id="Revolver" label="Revolver"></gel-dropdown-item>
-                <gel-dropdown-item id="Term Loan" label="Term Loan"></gel-dropdown-item>
-                <gel-dropdown-item id="Transactional" label="Transactional"></gel-dropdown-item>
-              </gel-dropdown>
-            </gel-form-item>
-            
-            <gel-form-item layout="vertical" label="Industry">
-              <gel-dropdown 
-                [selectedItemId]="formData().industry"
-                (selectionChange)="updateFormField('industry', $event)"
-                name="industry"
-                label="Select industry">
-                <gel-dropdown-item id="Energy" label="Energy"></gel-dropdown-item>
-                <gel-dropdown-item id="Metals" label="Metals"></gel-dropdown-item>
-                <gel-dropdown-item id="Technology" label="Technology"></gel-dropdown-item>
-                <gel-dropdown-item id="Healthcare" label="Healthcare"></gel-dropdown-item>
-              </gel-dropdown>
-            </gel-form-item>
-            
-            <gel-form-item layout="vertical" label="Type">
-              <gel-dropdown 
-                [selectedItemId]="formData().type"
-                (selectionChange)="updateFormField('type', $event)"
-                name="type"
-                label="Select type">
-                <gel-dropdown-item id="Syndication" label="Syndication"></gel-dropdown-item>
-                <gel-dropdown-item id="Bilateral" label="Bilateral"></gel-dropdown-item>
-                <gel-dropdown-item id="Club Deal" label="Club Deal"></gel-dropdown-item>
-              </gel-dropdown>
-            </gel-form-item>
-            
-            <gel-form-item layout="vertical" label="Status">
-              <gel-dropdown 
-                [selectedItemId]="formData().status"
-                (selectionChange)="updateFormField('status', $event)"
-                name="status"
-                label="Select status">
-                <gel-dropdown-item id="Lender" label="Lender"></gel-dropdown-item>
-                <gel-dropdown-item id="Agent" label="Agent"></gel-dropdown-item>
-                <gel-dropdown-item id="Participant" label="Participant"></gel-dropdown-item>
-              </gel-dropdown>
-            </gel-form-item>
-            
-            <div class="contacts-section">
-              <h3>Contacts</h3>
-              <div class="contact-row" *ngFor="let contact of contacts(); let i = index; trackBy: trackByIndex">
-                <gel-text-input
-                  [name]="'contactName' + i"
-                  label="Name"
-                  [value]="contact.name"
-                  (valueChange)="updateContact(i, 'name', $event)"
-                  class="contact-name">
-                </gel-text-input>
-                <gel-text-input
-                  [name]="'contactRole' + i"
-                  label="Role"
-                  [value]="contact.role"
-                  (valueChange)="updateContact(i, 'role', $event)"
-                  class="contact-role">
-                </gel-text-input>
-                <gel-button 
-                  hierarchy="secondary" 
-                  size="sm" 
-                  icon-left="delete"
-                  *ngIf="contacts().length > 1"
-                  (click)="removeContact(i)">
-                </gel-button>
-              </div>
-              <gel-button 
-                hierarchy="secondary" 
-                size="sm" 
-                icon-left="add"
-                (click)="addContact()">
-                Add Contact
-              </gel-button>
-            </div>
-            
-            <gel-form-item layout="vertical" label="Company Description">
-              <textarea 
-                name="companyDescription"
-                [value]="formData().companyDescription"
-                (input)="updateFormField('companyDescription', $any($event.target).value)"
-                required
-                rows="4"
-                class="company-description">
-              </textarea>
-            </gel-form-item>
-            
-            <div class="form-actions">
-              <gel-button 
-                hierarchy="primary"
-                size="lg"
-                [expand]="true"
-                [disabled]="!isFormValid() || isSubmitting()"
-                type="submit">
-                <span *ngIf="!isSubmitting()">Submit</span>
-                <span *ngIf="isSubmitting()">Submitting...</span>
-              </gel-button>
-            </div>
-          </gel-form>
-        </div>
-      </mat-sidenav>
-    </mat-sidenav-container>
-  `,
-  styles: [`
-    :host {
-      display: block;
-      height: 100%;
-    }
-    
-    .drawer-container {
-      height: 100%;
-    }
-    
-    mat-sidenav {
-      padding-top: var(--mq-space-xl, 24px);
-      width: 300px;
-      padding: 0px var(--mq-space-xl, 24px);
-      border-radius: 0 !important;
-    }
-    
-    .drawer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--mq-space-s, 8px);
-      border-bottom: 1px solid var(--mq-color-grey-200, #d9d9d9);
-      padding-top: var(--mq-space-l, 16px);
-      padding-bottom: var(--mq-space-l, 16px);
-      position: sticky;
-      top: 0px;
-      background: var(--mq-color-primary-white, #ffffff);
-    }
-    
-    .drawer-header h2 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .drawer-content {
-      padding-top: var(--mq-space-xl, 24px);
-      overflow-y: auto;
-      padding-bottom: var(--mq-space-xl, 24px);
-    }
-    
-    .form-row {
-      display: flex;
-      gap: var(--mq-space-l, 16px);
-      align-items: flex-end;
-      margin-bottom: var(--mq-space-l, 16px);
-    }
-    
-    .agent-field {
-      flex: 1;
-    }
-    
-    .prorate-section {
-      display: flex;
-      flex-direction: column;
-      gap: var(--mq-space-xs, 4px);
-      font-size: 12px;
-    }
-    
-    .prorate-label {
-      font-weight: 500;
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .contacts-section {
-      margin: var(--mq-space-xl, 24px) 0;
-    }
-    
-    .contacts-section h3 {
-      margin: 0 0 var(--mq-space-l, 16px) 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--mq-color-text-primary, #0d0d0d);
-    }
-    
-    .contact-row {
-      display: flex;
-      gap: var(--mq-space-s, 8px);
-      align-items: flex-end;
-      margin-bottom: var(--mq-space-l, 16px);
-    }
-    
-    .contact-name {
-      flex: 2;
-    }
-    
-    .contact-role {
-      flex: 1;
-    }
-    
-    .company-description {
-      width: 100%;
-      padding: var(--mq-space-s, 8px) var(--mq-space-m, 12px);
-      border: 1px solid var(--mq-color-grey-300, #bfbfbf);
-      border-radius: var(--mq-border-radius-s, 4px);
-      font-family: inherit;
-      font-size: 14px;
-      color: var(--mq-color-text-primary, #0d0d0d);
-      resize: vertical;
-      min-height: 80px;
-    }
-    
-    .company-description:focus {
-      outline: none;
-      border-color: var(--mq-color-brand-500, #0c6cce);
-      box-shadow: 0 0 0 2px var(--mq-color-brand-100, #e4f1fd);
-    }
-    
-    .form-actions {
-      margin-top: var(--mq-space-xl, 24px);
-      padding-bottom: var(--mq-space-xl, 24px);
-    }
-  `]
-})
-export class AddDealDrawerComponent {
-  @Input() isOpen = false;
-  @Output() openChange = new EventEmitter<boolean>();
-  @Output() dealAdded = new EventEmitter<Deal>();
-
-  // Form state signals
-  private readonly _formData = signal<Omit<Deal, 'id' | 'createdDate'>>({
-    name: '',
-    logo: '',
-    facilityLimit: 0,
-    agent: '',
-    shortNames: '',
-    facility: '',
-    industry: '',
-    type: '',
-    status: '',
-    companyDescription: '',
-    contacts: [{ name: '', role: '' }]
-  });
-
-  private readonly _contacts = signal<Contact[]>([{ name: '', role: '' }]);
-  private readonly _prorateManual = signal(false);
-  private readonly _isSubmitting = signal(false);
-
-  // Public readonly signals
-  readonly formData = computed(() => this._formData());
-  readonly contacts = computed(() => this._contacts());
-  readonly prorateManual = computed(() => this._prorateManual());
-  readonly isSubmitting = computed(() => this._isSubmitting());
-
-  // Computed validation
-  readonly isFormValid = computed(() => {
-    const data = this.formData();
-    return !!(
-      data.name.trim() &&
-      data.agent.trim() &&
-      data.shortNames.trim() &&
-      data.facility &&
-      data.industry &&
-      data.type &&
-      data.status &&
-      data.companyDescription.trim() &&
-      data.facilityLimit > 0
-    );
-  });
-
-  constructor(
-    private dealService: DealService, 
-    private dialog: MatDialog
-  ) {
-    // Effect to sync contacts with form data
-    effect(() => {
-      const contacts = this.contacts();
-      this._formData.update(data => ({ ...data, contacts }));
-    });
-  }
-
-  trackByIndex(index: number): number {
-    return index;
-  }
-
-  updateFormField(field: keyof Omit<Deal, 'id' | 'createdDate' | 'contacts'>, value: any): void {
-    this._formData.update(data => ({ ...data, [field]: value }));
-  }
-
-  updateContact(index: number, field: keyof Contact, value: string): void {
-    this._contacts.update(contacts => 
-      contacts.map((contact, i) => 
-        i === index ? { ...contact, [field]: value } : contact
-      )
-    );
-  }
-
-  addContact(): void {
-    this._contacts.update(contacts => [...contacts, { name: '', role: '' }]);
-  }
-
-  removeContact(index: number): void {
-    this._contacts.update(contacts => contacts.filter((_, i) => i !== index));
-  }
-
-  setProrateManual(value: boolean): void {
-    this._prorateManual.set(value);
-  }
-
-  handleOpenedChange(opened: boolean): void {
-    if (!opened) {
-      this.close();
-    }
-  }
-
-  close(): void {
-    this.openChange.emit(false);
-    this.resetForm();
-  }
-
-  onSubmit(): void {
-    if (!this.isFormValid()) return;
-
-    const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
-      width: '400px',
-      data: {
-        title: 'Confirm Deal Creation',
-        message: `Are you sure you want to create the deal "${this.formData().name}"?`,
-        confirmText: 'Create Deal',
-        cancelText: 'Cancel'
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) {
-        this.submitDeal();
-      }
-    });
-  }
-
-  private submitDeal(): void {
-    this._isSubmitting.set(true);
-    
-    this.dealService.addDeal(this.formData() as Deal).subscribe({
-      next: (newDeal) => {
-        this._isSubmitting.set(false);
-        this.dealAdded.emit(newDeal);
-        this.close();
-      },
-      error: (error) => {
-        this._isSubmitting.set(false);
-        console.error('Error creating deal:', error);
-      }
-    });
-  }
-
-  private resetForm(): void {
-    this._formData.set({
-      name: '',
-      logo: '',
-      facilityLimit: 0,
-      agent: '',
-      shortNames: '',
-      facility: '',
-      industry: '',
-      type: '',
-      status: '',
-      companyDescription: '',
-      contacts: [{ name: '', role: '' }]
-    });
-    this._contacts.set([{ name: '', role: '' }]);
-    this._prorateManual.set(false);
-    this._isSubmitting.set(false);
-  }
-}
-```
-
-## src/app/components/confirmation-dialog/confirmation-dialog.component.ts
-```typescript
-import { Component, Inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-
-export interface ConfirmationDialogData {
-  title: string;
-  message: string;
-  confirmText: string;
-  cancelText: string;
-}
-
-@Component({
-  selector: 'app-confirmation-dialog',
-  standalone: true,
-  imports: [CommonModule, MatDialogModule],
-  template: `
-    <h2 mat-dialog-title>{{ data.title }}</h2>
-    <div mat-dialog-content>
-      <p>{{ data.message }}</p>
-    </div>
-    <div mat-dialog-actions align="end" class="dialog-actions">
-      <gel-button 
-        hierarchy="secondary" 
-        (click)="onCancel()">
-        {{ data.cancelText }}
-      </gel-button>
-      <gel-button 
-        hierarchy="primary" 
-        (click)="onConfirm()">
-        {{ data.confirmText }}
-      </gel-button>
-    </div>
-  `,
-  styles: [`
-    .dialog-actions {
-      display: flex;
-      gap: var(--mq-space-m, 12px);
-      justify-content: flex-end;
-      padding: var(--mq-space-l, 16px) 0;
-    }
-  `]
-})
-export class ConfirmationDialogComponent {
-  constructor(
-    public dialogRef: MatDialogRef<ConfirmationDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: ConfirmationDialogData
-  ) {}
-
-  onCancel(): void {
-    this.dialogRef.close(false);
-  }
-
-  onConfirm(): void {
-    this.dialogRef.close(true);
-  }
-}
-```
-
-## src/styles.scss
-```scss
-@import '@angular/material/theming';
-
-/* Design Tokens */
-:root {
-  /* Spacing */
-  --mq-space-xs: 4px;
-  --mq-space-s: 8px;
-  --mq-space-m: 12px;
-  --mq-space-l: 16px;
-  --mq-space-xl: 24px;
-  --mq-space-2xl: 32px;
-  --mq-space-3xl: 40px;
-  --mq-space-4xl: 48px;
-  --mq-space-5xl: 56px;
-  --mq-space-6xl: 64px;
-  --mq-space-7xl: 72px;
-  --mq-space-8xl: 80px;
-  --mq-space-2xs: 2px;
-
-  /* Border Radius */
-  --mq-border-radius-xs: 0px;
-  --mq-border-radius-s: 4px;
-  --mq-border-radius-m: 8px;
-  --mq-border-radius-l: 16px;
-  --mq-border-radius-pill: 999px;
-  --mq-border-radius-circle: 50%;
-
-  /* Border Width */
-  --mq-border-width-xs: 0px;
-  --mq-border-width-s: 0.5px;
-  --mq-border-width-m: 1px;
-  --mq-border-width-l: 1.5px;
-  --mq-border-width-xl: 2px;
-  --mq-border-width-2xl: 4px;
-  --mq-border-width-3xl: 8px;
-
-  /* Shadows */
-  --mq-shadow-l1-0: 0px 2px 2px 0px #0000001a;
-  --mq-shadow-l1-1: 0px 0px 2px 0px #00000014;
-  --mq-shadow-l2-0: 0px 4px 8px 0px #0000001a;
-  --mq-shadow-l2-1: 0px 0px 4px 0px #00000014;
-  --mq-shadow-l3-0: 0px 8px 16px 0px #0000001a;
-  --mq-shadow-l3-1: 0px 0px 6px 0px #00000014;
-  --mq-shadow-l4-0: 0px 10px 20px 0px #0000001a;
-  --mq-shadow-l4-1: 0px 0px 8px 0px #00000014;
-  --mq-shadow-l5-0: 0px 12px 24px 0px #0000001a;
-  --mq-shadow-l5-1: 0px 0px 10px 0px #00000014;
-  --mq-shadow-l6-0: 0px 16px 32px 0px #0000001a;
-  --mq-shadow-l6-1: 0px 0px 12px 0px #00000014;
-
-  /* Primary Colors */
-  --mq-color-primary-black: #000000ff;
-  --mq-color-primary-white: #ffffffff;
-  --mq-color-primary-black-4: #0000000a;
-  --mq-color-primary-black-8: #00000014;
-  --mq-color-primary-black-10: #0000001a;
-  --mq-color-primary-white-0: #ffffff00;
-  --mq-color-primary-white-50: #ffffff80;
-  --mq-color-primary-white-4: #ffffff0a;
-  --mq-color-primary-white-8: #ffffff14;
-  --mq-color-primary-white-10: #ffffff1a;
-  --mq-color-primary-white-25: #ffffff40;
-  --mq-color-primary-black-25: #00000040;
-
-  /* Brand Colors */
-  --mq-color-brand-100: #e4f1fdff;
-  --mq-color-brand-200: #a5cffaff;
-  --mq-color-brand-300: #67aef6ff;
-  --mq-color-brand-400: #298df3ff;
-  --mq-color-brand-500: #0c6cceff;
-  --mq-color-brand-600: #0954a0ff;
-  --mq-color-brand-700: #073c71ff;
-  --mq-color-brand-800: #042343ff;
-  --mq-color-brand-900: #010b15ff;
-
-  /* Grey Colors */
-  --mq-color-grey-50: #f7f7f7ff;
-  --mq-color-grey-100: #f2f2f2ff;
-  --mq-color-grey-150: #e5e5e5ff;
-  --mq-color-grey-200: #d9d9d9ff;
-  --mq-color-grey-250: #ccccccff;
-  --mq-color-grey-300: #bfbfbfff;
-  --mq-color-grey-350: #b3b3b3ff;
-  --mq-color-grey-400: #a6a6a6ff;
-  --mq-color-grey-450: #999999ff;
-  --mq-color-grey-500: #8c8c8cff;
-  --mq-color-grey-550: #808080ff;
-  --mq-color-grey-600: #737373ff;
-  --mq-color-grey-650: #666666ff;
-  --mq-color-grey-700: #595959ff;
-  --mq-color-grey-750: #4c4c4cff;
-  --mq-color-grey-800: #404040ff;
-  --mq-color-grey-850: #333333ff;
-  --mq-color-grey-900: #262626ff;
-  --mq-color-grey-950: #1a1a1aff;
-  --mq-color-grey-1000: #0d0d0dff;
-
-  /* Semantic Colors */
-  --mq-color-tomato-100: #ffe8e3ff;
-  --mq-color-tomato-200: #ffb3a4ff;
-  --mq-color-tomato-300: #ff7f65ff;
-  --mq-color-tomato-400: #ff4a25ff;
-  --mq-color-tomato-500: #e52600ff;
-  --mq-color-tomato-600: #b11d00ff;
-  --mq-color-tomato-700: #8c1700ff;
-  --mq-color-tomato-800: #4b0c00ff;
-  --mq-color-tomato-900: #170400ff;
-
-  /* Light theme text colors */
-  --mq-color-text-primary: #0d0d0dff;
-  --mq-color-text-secondary: #333333ff;
-  --mq-color-text-tertiary: #666666ff;
-  --mq-color-text-primary-inverse: #ffffffff;
-  --mq-color-text-secondary-inverse: #e5e5e5ff;
-  --mq-color-text-tertiary-inverse: #bfbfbfff;
-  --mq-color-text-brand: #0c6cceff;
-  --mq-color-text-brand-hover: #0954a0ff;
-  --mq-color-text-disabled: #a6a6a6ff;
-  --mq-color-text-info: #0c6cceff;
-  --mq-color-text-warning: #b14d00ff;
-  --mq-color-text-negative: #b11d00ff;
-  --mq-color-text-positive: #007759ff;
-  --mq-color-text-link: #0c6cceff;
-  --mq-color-text-link-hover: #0954a0ff;
-  --mq-color-text-link-inverse: #ffffffff;
-  --mq-color-text-link-inverse-hover: #f2f2f2ff;
-  --mq-color-text-primary-static: #000000ff;
-  --mq-color-text-secondary-static: #333333ff;
-  --mq-color-text-tertiary-static: #666666ff;
-  --mq-color-text-primary-inverse-static: #ffffffff;
-  --mq-color-text-secondary-inverse-static: #e5e5e5ff;
-  --mq-color-text-tertiary-inverse-static: #b3b3b3ff;
-
-  /* Interactive Colors */
-  --mq-color-interactive-background-brand-primary-default: #0c6cceff;
-  --mq-color-interactive-background-brand-primary-hover: #0954a0ff;
-  --mq-color-interactive-background-brand-primary-pressed: #073c71ff;
-  --mq-color-interactive-background-brand-secondary-hover: #e4f1fdff;
-  --mq-color-interactive-background-brand-secondary-pressed: #a5cffaff;
-  --mq-color-interactive-background-primary-disabled: #bfbfbfff;
-  --mq-color-interactive-background-tertiary-hover: #f7f7f7ff;
-  --mq-color-interactive-background-tertiary-pressed: #f2f2f2ff;
-  --mq-color-interactive-background-primary-default: #000000ff;
-
-  /* Background Colors */
-  --mq-color-background-header-static: #333333ff;
-}
-
-html, body { 
-  height: 100%; 
-  margin: 0; 
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-  background-color: var(--mq-color-grey-50, #f7f7f7);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-/* Fix for Material sidenav overlay */
-.cdk-overlay-container {
-  z-index: 1000;
-}
-
-.cdk-global-overlay-wrapper {
-  z-index: 1000;
-}
-
-/* Material Dialog overrides */
-.mat-mdc-dialog-container {
-  --mdc-dialog-container-shape: var(--mq-border-radius-m, 8px);
-}
-
-/* Hide Material button ripples for cleaner GEL appearance */
-.mat-mdc-button .mat-mdc-button-ripple,
-.mat-mdc-raised-button .mat-mdc-button-ripple {
-  display: none;
-}
-```
-
-## src/index.html
-```html
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Loan Management App</title>
-  <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="preconnect" href="https://fonts.gstatic.com">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-</head>
-<body class="mat-typography">
-  <app-root></app-root>
-</body>
-</html>
-```
-
-## tsconfig.app.json
-```json
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./out-tsc/app",
-    "types": []
-  },
-  "files": [
-    "src/main.ts"
-  ],
-  "include": [
-    "src/**/*.d.ts"
-  ]
-}
-```
-
-## tsconfig.spec.json
-```json
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./out-tsc/spec",
-    "types": [
-      "jasmine"
-    ]
-  },
-  "include": [
-    "src/**/*.spec.ts",
-    "src/**/*.d.ts"
-  ]
-}
-```
-
-## ANGULAR 19 SIGNALS IMPLEMENTATION HIGHLIGHTS
-
-### **🎯 Key Signals Features Implemented:**
-
-1. **Service State Management** 
-   - `AuthService`: User state, loading states, computed display names
-   - `DealService`: Deals array, search filtering, statistics calculations
-   - `UIStateService`: Drawer states, navigation state, theme management
-
-2. **Component Reactive State**
-   - `LoginComponent`: Form validation, error states
-   - `AddDealDrawerComponent`: Form data, validation, contacts management
-   - `SideNavComponent`: Hover states, selected items
-
-3. **Computed Signals for Derived State**
-   - `filteredDeals()`: Real-time search filtering
-   - `dealStats()`: Dynamic statistics calculation
-   - `isFormValid()`: Live form validation
-   - `displayName()`: User name concatenation
-
-4. **Effects for Side Effects**
-   - Auth token persistence to localStorage
-   - Deals persistence to localStorage
-   - Form state synchronization
-
-### **🚀 Benefits Over Previous RxJS Version:**
-
-- ✅ **Simpler Mental Model**: No subscriptions to manage
-- ✅ **Automatic Cleanup**: No need to unsubscribe
-- ✅ **Fine-grained Reactivity**: Only updates what actually changed
-- ✅ **Better Performance**: Angular's optimized change detection
-- ✅ **Type Safety**: Full TypeScript support
-- ✅ **Synchronous State**: Easy to debug and reason about
-
-### **📦 Setup Instructions:**
-
-```bash
-npm install
-ng generate service services/auth
-ng generate service services/deal  
-ng generate service services/ui-state
-ng generate guard guards/auth
-ng generate component components/login
-ng generate component components/global-header
-ng generate component components/side-nav
-ng generate component components/dashboard
-ng generate component components/deals
-ng generate component components/add-deal-drawer
-ng generate component components/confirmation-dialog
-ng serve
-```
-
-**Login:** admin / password
-
-The application now uses Angular 19 signals throughout for modern, reactive state management!
-                  # LOAN MANAGEMENT APPLICATION - WITH ANGULAR 19 SIGNALS
-
-## package.json
-```json
-{
-  "name": "loan-management-app",
-  "version": "19.0.0",
-  "scripts": {
-    "ng": "ng",
-    "start": "ng serve",
-    "build": "ng build",
-    "test": "ng test",
-    "lint": "ng lint",
-    "e2e": "ng e2e"
-  },
-  "dependencies": {
-    "@angular/animations": "^19.0.0",
-    "@angular/cdk": "^19.0.0",
-    "@angular/common": "^19.0.0",
-    "@angular/compiler": "^19.0.0",
-    "@angular/core": "^19.0.0",
-    "@angular/forms": "^19.0.0",
-    "@angular/material": "^19.0.0",
-    "@angular/platform-browser": "^19.0.0",
-    "@angular/platform-browser-dynamic": "^19.0.0",
-    "@angular/router": "^19.0.0",
-    "rxjs": "~7.8.0",
-    "tslib": "^2.3.0",
-    "zone.js": "~0.14.0"
-  },
-  "devDependencies": {
-    "@angular-devkit/build-angular": "^19.0.0",
-    "@angular/cli": "^19.0.0",
-    "@angular/compiler-cli": "^19.0.0",
-    "@types/node": "^18.7.0",
-    "typescript": "~5.6.0"
-  }
-}
-```
-
-## angular.json
-```json
-{
-  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
-  "version": 1,
-  "newProjectRoot": "projects",
-  "projects": {
-    "loan-management-app": {
-      "projectType": "application",
-      "schematics": {
-        "@schematics/angular:component": {
-          "style": "scss",
-          "standalone": true
-        }
-      },
-      "root": "",
-      "sourceRoot": "src",
-      "prefix": "app",
-      "architect": {
-        "build": {
-          "builder": "@angular-devkit/build-angular:browser",
-          "options": {
-            "outputPath": "dist/loan-management-app",
-            "index": "src/index.html",
-            "main": "src/main.ts",
-            "polyfills": "src/polyfills.ts",
-            "tsConfig": "tsconfig.app.json",
-            "inlineStyleLanguage": "scss",
-            "assets": [
-              "src/favicon.ico",
-              "src/assets"
-            ],
-            "styles": [
-              "@angular/material/prebuilt-themes/azure-blue.css",
-              "src/styles.scss"
-            ],
-            "scripts": []
-          },
-          "configurations": {
-            "production": {
-              "budgets": [
-                {
-                  "type": "initial",
-                  "maximumWarning": "500kb",
-                  "maximumError": "1mb"
-                },
-                {
-                  "type": "anyComponentStyle",
-                  "maximumWarning": "2kb",
-                  "maximumError": "4kb"
-                }
-              ],
-              "outputHashing": "all"
-            },
-            "development": {
-              "buildOptimizer": false,
-              "optimization": false,
-              "vendorChunk": true,
-              "extractLicenses": false,
-              "sourceMap": true,
-              "namedChunks": true
-            }
-          },
-          "defaultConfiguration": "production"
-        },
-        "serve": {
-          "builder": "@angular-devkit/build-angular:dev-server",
-          "configurations": {
-            "production": {
-              "buildTarget": "loan-management-app:build:production"
-            },
-            "development": {
-              "buildTarget": "loan-management-app:build:development"
-            }
-          },
-          "defaultConfiguration": "development"
-        },
-        "extract-i18n": {
-          "builder": "@angular-devkit/build-angular:extract-i18n",
-          "options": {
-            "buildTarget": "loan-management-app:build"
-          }
-        },
-        "test": {
-          "builder": "@angular-devkit/build-angular:karma",
-          "options": {
-            "polyfills": "src/polyfills.ts",
-            "tsConfig": "tsconfig.spec.json",
-            "inlineStyleLanguage": "scss",
-            "assets": [
-              "src/favicon.ico",
-              "src/assets"
-            ],
-            "styles": [
-              "@angular/material/prebuilt-themes/azure-blue.css",
-              "src/styles.scss"
-            ],
-            "scripts": []
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-## tsconfig.json
-```json
-{
-  "compileOnSave": false,
-  "compilerOptions": {
-    "outDir": "./dist/out-tsc",
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noImplicitOverride": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "sourceMap": true,
-    "declaration": false,
-    "experimentalDecorators": true,
-    "moduleResolution": "bundler",
-    "importHelpers": true,
-    "target": "ES2022",
-    "module": "ES2022",
-    "useDefineForClassFields": false,
-    "lib": [
-      "ES2022",
-      "dom"
-    ]
-  },
-  "angularCompilerOptions": {
-    "enableI18nLegacyMessageIdFormat": false,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true,
-    "strictTemplates": true
-  }
-}
-```
-
-## src/main.ts
-```typescript
+// src/main.ts
 import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from './app/app.component';
 import { provideRouter } from '@angular/router';
@@ -1774,10 +11,8 @@ bootstrapApplication(AppComponent, {
     provideAnimationsAsync()
   ]
 }).catch(err => console.error(err));
-```
 
-## src/app/app.routes.ts
-```typescript
+// src/app/app.routes.ts
 import { Routes } from '@angular/router';
 import { LoginComponent } from './components/login/login.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
@@ -1798,18 +33,15 @@ export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' }
 ];
-```
 
-## src/app/app.component.ts
-```typescript
+// src/app/app.component.ts
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
-  standalone: true,
   imports: [RouterOutlet],
-  template: `<router-outlet></router-outlet>`,
+  template: `<router-outlet />`,
   styles: [`
     :host {
       display: block;
@@ -1820,35 +52,17 @@ import { RouterOutlet } from '@angular/router';
 export class AppComponent {
   title = 'loan-management-app';
 }
-```
 
-## src/app/guards/auth.guard.ts
-```typescript
-import { Injectable } from '@angular/core';
-import { CanActivate, Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class AuthGuard implements CanActivate {
-  constructor(private authService: AuthService, private router: Router) {}
-
-  canActivate(): boolean {
-    if (this.authService.isAuthenticated()) {
-      return true;
-    } else {
-      this.router.navigate(['/login']);
-      return false;
-    }
-  }
-}
-```
-
-## src/app/services/auth.service.ts
-```typescript
-import { Injectable, signal, computed, effect } from '@angular/core';
+// src/app/services/auth.service.ts
+import { Injectable, signal, computed } from '@angular/core';
 import { Observable, of, delay, map } from 'rxjs';
+
+export interface LoginResponse {
+  success: boolean;
+  token?: string;
+  user?: any;
+  error?: string;
+}
 
 export interface User {
   firstName: string;
@@ -1856,74 +70,46 @@ export interface User {
   role: string;
 }
 
-export interface LoginResponse {
-  success: boolean;
-  token?: string;
-  user?: User;
-  error?: string;
-}
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-}
-
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
   private readonly TOKEN_KEY = 'loan_app_token';
-
-  // Private writable signals for internal state management
-  private readonly _state = signal<AuthState>({
-    user: null,
-    token: null,
-    isAuthenticated: false,
-    isLoading: false
-  });
-
-  // Public readonly signals for components to consume
-  readonly user = computed(() => this._state().user);
-  readonly token = computed(() => this._state().token);
-  readonly isAuthenticated = computed(() => this._state().isAuthenticated);
-  readonly isLoading = computed(() => this._state().isLoading);
-  readonly displayName = computed(() => {
-    const user = this.user();
-    return user ? `${user.firstName} ${user.lastName}` : 'Guest';
+  
+  // Signals for reactive state management
+  private _currentUser = signal<User | null>(null);
+  private _isAuthenticated = signal<boolean>(false);
+  
+  // Public computed signals
+  readonly currentUser = this._currentUser.asReadonly();
+  readonly isAuthenticated = this._isAuthenticated.asReadonly();
+  readonly userDisplayName = computed(() => {
+    const user = this._currentUser();
+    return user ? `${user.firstName} ${user.lastName}` : '';
   });
 
   constructor() {
-    // Initialize auth state from localStorage on service creation
     this.initializeAuthState();
+  }
 
-    // Effect to sync token changes to localStorage
-    effect(() => {
-      const token = this.token();
-      if (token) {
-        localStorage.setItem(this.TOKEN_KEY, token);
-      } else {
-        localStorage.removeItem(this.TOKEN_KEY);
-      }
-    });
+  private initializeAuthState(): void {
+    const token = localStorage.getItem(this.TOKEN_KEY);
+    if (token && this.isTokenValid(token)) {
+      const payload = this.decodeToken(token);
+      this._currentUser.set({
+        firstName: 'Alistair',
+        lastName: 'Guthrie',
+        role: payload.role
+      });
+      this._isAuthenticated.set(true);
+    }
   }
 
   login(username: string, password: string): Observable<LoginResponse> {
-    this.setLoading(true);
-    
     return of(null).pipe(
       delay(1500),
       map(() => {
-        this.setLoading(false);
-        
         if (username === 'admin' && password === 'password') {
-          const user: User = {
-            firstName: 'Alistair',
-            lastName: 'Guthrie',
-            role: 'administrator'
-          };
-          
           const mockToken = this.generateMockJWT({
             sub: 'admin',
             name: 'Alistair Guthrie',
@@ -1931,7 +117,16 @@ export class AuthService {
             exp: Date.now() + (24 * 60 * 60 * 1000)
           });
           
-          this.setAuthenticatedUser(user, mockToken);
+          localStorage.setItem(this.TOKEN_KEY, mockToken);
+          
+          const user: User = {
+            firstName: 'Alistair',
+            lastName: 'Guthrie',
+            role: 'administrator'
+          };
+          
+          this._currentUser.set(user);
+          this._isAuthenticated.set(true);
           
           return {
             success: true,
@@ -1949,49 +144,18 @@ export class AuthService {
   }
 
   logout(): void {
-    this._state.set({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: false
-    });
+    localStorage.removeItem(this.TOKEN_KEY);
+    this._currentUser.set(null);
+    this._isAuthenticated.set(false);
   }
 
-  getCurrentUser(): User | null {
-    return this.user();
-  }
-
-  // Private helper methods
-  private initializeAuthState(): void {
-    const token = localStorage.getItem(this.TOKEN_KEY);
-    if (token) {
-      try {
-        const payload = this.decodeToken(token);
-        if (payload.exp > Date.now()) {
-          const user: User = {
-            firstName: 'Alistair',
-            lastName: 'Guthrie',
-            role: payload.role
-          };
-          this.setAuthenticatedUser(user, token);
-        }
-      } catch {
-        // Invalid token, ignore
-      }
+  private isTokenValid(token: string): boolean {
+    try {
+      const payload = this.decodeToken(token);
+      return payload.exp > Date.now();
+    } catch {
+      return false;
     }
-  }
-
-  private setLoading(loading: boolean): void {
-    this._state.update(state => ({ ...state, isLoading: loading }));
-  }
-
-  private setAuthenticatedUser(user: User, token: string): void {
-    this._state.set({
-      user,
-      token,
-      isAuthenticated: true,
-      isLoading: false
-    });
   }
 
   private generateMockJWT(payload: any): string {
@@ -2007,17 +171,10 @@ export class AuthService {
     return JSON.parse(atob(parts[1]));
   }
 }
-```
 
-## src/app/services/deal.service.ts
-```typescript
-import { Injectable, signal, computed, effect } from '@angular/core';
+// src/app/services/deal.service.ts
+import { Injectable, signal, computed } from '@angular/core';
 import { Observable, of, delay, map } from 'rxjs';
-
-export interface Contact {
-  name: string;
-  role: string;
-}
 
 export interface Deal {
   id?: string;
@@ -2035,11 +192,9 @@ export interface Deal {
   createdDate?: Date;
 }
 
-export interface DealState {
-  deals: Deal[];
-  isLoading: boolean;
-  selectedDeal: Deal | null;
-  searchTerm: string;
+export interface Contact {
+  name: string;
+  role: string;
 }
 
 @Injectable({
@@ -2047,123 +202,73 @@ export interface DealState {
 })
 export class DealService {
   private readonly DEALS_KEY = 'loan_app_deals';
-
-  // Private state signal
-  private readonly _state = signal<DealState>({
-    deals: [],
-    isLoading: false,
-    selectedDeal: null,
-    searchTerm: ''
-  });
-
-  // Public readonly signals
-  readonly deals = computed(() => this._state().deals);
-  readonly isLoading = computed(() => this._state().isLoading);
-  readonly selectedDeal = computed(() => this._state().selectedDeal);
-  readonly searchTerm = computed(() => this._state().searchTerm);
-
-  // Computed filtered deals based on search term
-  readonly filteredDeals = computed(() => {
-    const deals = this.deals();
-    const search = this.searchTerm().toLowerCase().trim();
-    
-    if (!search) return deals;
-    
-    return deals.filter(deal =>
-      deal.name.toLowerCase().includes(search) ||
-      deal.agent.toLowerCase().includes(search) ||
-      deal.industry.toLowerCase().includes(search) ||
-      deal.shortNames.toLowerCase().includes(search)
-    );
-  });
-
-  // Computed statistics
-  readonly dealStats = computed(() => {
-    const deals = this.deals();
-    return {
-      total: deals.length,
-      totalFacilityAmount: deals.reduce((sum, deal) => sum + deal.facilityLimit, 0),
-      byStatus: deals.reduce((acc, deal) => {
-        acc[deal.status] = (acc[deal.status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>),
-      byIndustry: deals.reduce((acc, deal) => {
-        acc[deal.industry] = (acc[deal.industry] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>)
-    };
+  
+  // Signal for reactive state management
+  private _deals = signal<Deal[]>([]);
+  
+  // Public computed signals
+  readonly deals = this._deals.asReadonly();
+  readonly dealCount = computed(() => this._deals().length);
+  readonly dealsByStatus = computed(() => {
+    const deals = this._deals();
+    return deals.reduce((acc, deal) => {
+      acc[deal.status] = (acc[deal.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
   });
 
   constructor() {
-    // Initialize deals from localStorage
-    this.initializeDeals();
-
-    // Effect to persist deals to localStorage whenever deals change
-    effect(() => {
-      const deals = this.deals();
-      if (deals.length > 0) {
-        this.saveDealsToStorage(deals);
-      }
-    });
+    this.loadDeals();
   }
 
-  // Public methods for updating state
-  setSearchTerm(searchTerm: string): void {
-    this._state.update(state => ({ ...state, searchTerm }));
+  private loadDeals(): void {
+    const deals = this.getDealsFromStorage();
+    this._deals.set(deals);
   }
 
-  selectDeal(deal: Deal | null): void {
-    this._state.update(state => ({ ...state, selectedDeal: deal }));
+  getDeals(): Observable<Deal[]> {
+    return of(this._deals());
   }
 
   addDeal(deal: Deal): Observable<Deal> {
-    this.setLoading(true);
-    
     return of(deal).pipe(
       delay(2000),
       map((deal: Deal) => {
-        const newDeal: Deal = {
+        const newDeal = {
           ...deal,
           id: this.generateId(),
           createdDate: new Date()
         };
         
-        this._state.update(state => ({
-          ...state,
-          deals: [...state.deals, newDeal],
-          isLoading: false
-        }));
+        const currentDeals = this._deals();
+        const updatedDeals = [...currentDeals, newDeal];
+        
+        this._deals.set(updatedDeals);
+        this.saveDealsToStorage(updatedDeals);
         
         return newDeal;
       })
     );
   }
 
-  updateDeal(updatedDeal: Deal): void {
-    this._state.update(state => ({
-      ...state,
-      deals: state.deals.map(deal =>
-        deal.id === updatedDeal.id ? updatedDeal : deal
-      )
-    }));
+  updateDeal(dealId: string, updates: Partial<Deal>): void {
+    const currentDeals = this._deals();
+    const updatedDeals = currentDeals.map(deal => 
+      deal.id === dealId ? { ...deal, ...updates } : deal
+    );
+    this._deals.set(updatedDeals);
+    this.saveDealsToStorage(updatedDeals);
   }
 
   deleteDeal(dealId: string): void {
-    this._state.update(state => ({
-      ...state,
-      deals: state.deals.filter(deal => deal.id !== dealId),
-      selectedDeal: state.selectedDeal?.id === dealId ? null : state.selectedDeal
-    }));
+    const currentDeals = this._deals();
+    const updatedDeals = currentDeals.filter(deal => deal.id !== dealId);
+    this._deals.set(updatedDeals);
+    this.saveDealsToStorage(updatedDeals);
   }
 
-  // Private helper methods
-  private setLoading(loading: boolean): void {
-    this._state.update(state => ({ ...state, isLoading: loading }));
-  }
-
-  private initializeDeals(): void {
-    const savedDeals = this.getDealsFromStorage();
-    this._state.update(state => ({ ...state, deals: savedDeals }));
+  getDealById(id: string): Deal | undefined {
+    return this._deals().find(deal => deal.id === id);
   }
 
   private getDealsFromStorage(): Deal[] {
@@ -2217,121 +322,33 @@ export class DealService {
     ];
   }
 }
-```
 
-## src/app/services/ui-state.service.ts
-```typescript
-import { Injectable, signal, computed } from '@angular/core';
+// src/app/guards/auth.guard.ts
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
-export interface DrawerState {
-  isAddDealOpen: boolean;
-  isUserMenuOpen: boolean;
-}
+export const AuthGuard: CanActivateFn = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
 
-export interface NavigationState {
-  selectedNavItem: string;
-  sideNavCollapsed: boolean;
-}
-
-export interface UIState {
-  drawer: DrawerState;
-  navigation: NavigationState;
-  theme: 'light' | 'dark';
-}
-
-@Injectable({
-  providedIn: 'root'
-})
-export class UIStateService {
-  // Private writable state
-  private readonly _state = signal<UIState>({
-    drawer: {
-      isAddDealOpen: false,
-      isUserMenuOpen: false
-    },
-    navigation: {
-      selectedNavItem: 'deals',
-      sideNavCollapsed: false
-    },
-    theme: 'light'
-  });
-
-  // Public readonly signals
-  readonly drawerState = computed(() => this._state().drawer);
-  readonly navigationState = computed(() => this._state().navigation);
-  readonly theme = computed(() => this._state().theme);
-  
-  // Specific computed values for convenience
-  readonly isAddDealOpen = computed(() => this._state().drawer.isAddDealOpen);
-  readonly selectedNavItem = computed(() => this._state().navigation.selectedNavItem);
-  readonly sideNavCollapsed = computed(() => this._state().navigation.sideNavCollapsed);
-
-  // Drawer actions
-  openAddDeal(): void {
-    this._state.update(state => ({
-      ...state,
-      drawer: { ...state.drawer, isAddDealOpen: true }
-    }));
+  if (authService.isAuthenticated()) {
+    return true;
+  } else {
+    router.navigate(['/login']);
+    return false;
   }
+};
 
-  closeAddDeal(): void {
-    this._state.update(state => ({
-      ...state,
-      drawer: { ...state.drawer, isAddDealOpen: false }
-    }));
-  }
-
-  toggleUserMenu(): void {
-    this._state.update(state => ({
-      ...state,
-      drawer: { ...state.drawer, isUserMenuOpen: !state.drawer.isUserMenuOpen }
-    }));
-  }
-
-  // Navigation actions
-  selectNavItem(item: string): void {
-    this._state.update(state => ({
-      ...state,
-      navigation: { ...state.navigation, selectedNavItem: item }
-    }));
-  }
-
-  toggleSideNav(): void {
-    this._state.update(state => ({
-      ...state,
-      navigation: { ...state.navigation, sideNavCollapsed: !state.navigation.sideNavCollapsed }
-    }));
-  }
-
-  // Theme actions
-  setTheme(theme: 'light' | 'dark'): void {
-    this._state.update(state => ({ ...state, theme }));
-  }
-
-  toggleTheme(): void {
-    this._state.update(state => ({
-      ...state,
-      theme: state.theme === 'light' ? 'dark' : 'light'
-    }));
-  }
-}
-```
-
-## src/app/components/login/login.component.ts
-```typescript
-import { Component, signal, computed } from '@angular/core';
+// src/app/components/login/login.component.ts
+import { Component, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule
-  ],
+  imports: [FormsModule],
   template: `
     <div class="login-container">
       <div class="login-card">
@@ -2340,22 +357,21 @@ import { AuthService } from '../../services/auth.service';
             appearance="co-brand"
             data-theme="light"
             size="lg"
-            label="PF"
+            label="AG"
             labelSecondary="Platform">
           </gel-logo>
         </div>
         
         <div class="login-content">
           <gel-form name="login-form" action="#" (ngSubmit)="onLogin()" #loginForm="ngForm">
-            
             <gel-form-item layout="vertical" label="Username">
               <gel-text-input
                 name="username"
-                [(ngModel)]="credentials().username"
-                (ngModelChange)="updateUsername($event)"
+                [(ngModel)]="username"
                 required="true"
-                [disabled]="authService.isLoading()"
-                size="lg">
+                [disabled]="isLoading()"
+                size="lg"
+                placeholder="Enter username">
               </gel-text-input>
             </gel-form-item>
             
@@ -2363,31 +379,38 @@ import { AuthService } from '../../services/auth.service';
               <gel-text-input
                 name="password"
                 inputType="password"
-                [(ngModel)]="credentials().password"
-                (ngModelChange)="updatePassword($event)"
+                [(ngModel)]="password"
                 required="true"
-                [disabled]="authService.isLoading()"
-                size="lg">
+                [disabled]="isLoading()"
+                size="lg"
+                placeholder="Enter password">
               </gel-text-input>
             </gel-form-item>
             
-            <div class="error-message" *ngIf="errorMessage()">
-              {{ errorMessage() }}
-            </div>
+            @if (errorMessage()) {
+              <div class="error-message">
+                {{ errorMessage() }}
+              </div>
+            }
             
             <gel-button 
               hierarchy="primary"
               size="lg"
               [expand]="true"
-              [disabled]="!isFormValid() || authService.isLoading()"
+              [disabled]="!loginForm.valid || isLoading()"
               type="submit">
-              <span *ngIf="!authService.isLoading()">Login</span>
-              <span *ngIf="authService.isLoading()">Authenticating...</span>
+              @if (!isLoading()) {
+                Login
+              } @else {
+                Authenticating...
+              }
             </gel-button>
           </gel-form>
           
           <div class="demo-credentials">
-            <small>Demo credentials: admin / password</small>
+            <gel-text size="s" appearance="disabled">
+              Demo credentials: admin / password
+            </gel-text>
           </div>
         </div>
       </div>
@@ -2399,116 +422,94 @@ import { AuthService } from '../../services/auth.service';
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      background: var(--mq-color-background-header-static, #333333);
-      padding: var(--mq-space-xl, 24px);
+      background: var(--mq-color-background-header-static);
+      padding: var(--mq-space-xl);
     }
     
     .login-card {
       width: 100%;
       max-width: 400px;
-      background: var(--mq-color-primary-white, #ffffff);
-      border-radius: var(--mq-border-radius-m, 8px);
-      box-shadow: var(--mq-shadow-l3-0, 0px 8px 16px 0px #0000001a);
+      background: var(--mq-color-primary-white);
+      border-radius: var(--mq-border-radius-m);
+      box-shadow: var(--mq-shadow-l3-0);
       overflow: hidden;
     }
     
     .login-header {
       text-align: center;
-      padding: var(--mq-space-2xl, 32px) var(--mq-space-xl, 24px) var(--mq-space-l, 16px);
-      background: var(--mq-color-primary-white, #ffffff);
+      padding: var(--mq-space-2xl) var(--mq-space-xl) var(--mq-space-l);
+      background: var(--mq-color-primary-white);
     }
     
     .login-content {
-      padding: var(--mq-space-xl, 24px);
+      padding: var(--mq-space-xl);
     }
     
     gel-form {
       display: flex;
       flex-direction: column;
-      gap: var(--mq-space-l, 16px);
+      gap: var(--mq-space-l);
     }
     
     .error-message {
-      color: var(--mq-color-text-negative, #b11d00);
+      color: var(--mq-color-text-negative);
       font-size: 14px;
       text-align: center;
-      padding: var(--mq-space-s, 8px);
-      background: var(--mq-color-tomato-100, #ffe8e3);
-      border-radius: var(--mq-border-radius-s, 4px);
+      padding: var(--mq-space-s);
+      background: var(--mq-color-tomato-100);
+      border-radius: var(--mq-border-radius-s);
+      border: 1px solid var(--mq-color-tomato-200);
     }
     
     .demo-credentials {
       text-align: center;
-      margin-top: var(--mq-space-l, 16px);
-      color: var(--mq-color-text-tertiary, #666666);
+      margin-top: var(--mq-space-l);
     }
   `]
 })
 export class LoginComponent {
-  // Component signals for form state
-  private readonly _credentials = signal({
-    username: '',
-    password: ''
-  });
-  private readonly _errorMessage = signal('');
+  private authService = inject(AuthService);
+  private router = inject(Router);
 
-  // Public readonly signals
-  readonly credentials = computed(() => this._credentials());
-  readonly errorMessage = computed(() => this._errorMessage());
-  readonly isFormValid = computed(() => {
-    const creds = this.credentials();
-    return creds.username.trim() !== '' && creds.password.trim() !== '';
-  });
+  // Signals for reactive UI state
+  readonly isLoading = signal(false);
+  readonly errorMessage = signal('');
 
-  constructor(
-    public authService: AuthService,
-    private router: Router
-  ) {}
+  // Form fields (no need for signals here)
+  username = '';
+  password = '';
 
-  updateUsername(username: string): void {
-    this._credentials.update(creds => ({ ...creds, username }));
-    this._errorMessage.set(''); // Clear error when user types
-  }
-
-  updatePassword(password: string): void {
-    this._credentials.update(creds => ({ ...creds, password }));
-    this._errorMessage.set(''); // Clear error when user types
-  }
-
-  onLogin(): void {
-    const { username, password } = this.credentials();
+  async onLogin(): Promise<void> {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
     
-    this.authService.login(username, password).subscribe({
+    this.authService.login(this.username, this.password).subscribe({
       next: (response) => {
+        this.isLoading.set(false);
         if (response.success) {
           this.router.navigate(['/dashboard']);
         } else {
-          this._errorMessage.set(response.error || 'Login failed');
+          this.errorMessage.set(response.error || 'Login failed');
         }
       },
-      error: (error) => {
-        this._errorMessage.set('An error occurred during login');
-        console.error('Login error:', error);
+      error: () => {
+        this.isLoading.set(false);
+        this.errorMessage.set('An error occurred during login');
       }
     });
   }
 }
-```
 
-## src/app/components/global-header/global-header.component.ts
-```typescript
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
+// src/app/components/global-header/global-header.component.ts
+import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-global-header',
-  standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatMenuModule],
+  imports: [MatMenuModule, MatIconModule],
   template: `
     <header class="global-header">
       <div class="header-left">
@@ -2517,19 +518,1355 @@ import { AuthService } from '../../services/auth.service';
           data-theme="dark"
           size="sm"
           region="en"
-          label="PF"
+          label="AG"
           labelSecondary="Platform"
           alignment="horizontal">
         </gel-logo>
       </div>
+      
       <div class="header-right">
-        <button mat-button [matMenuTriggerFor]="userMenu" class="user-button">
-          <span>{{ authService.displayName() }}</span>
-          <mat-icon>keyboard_arrow_down</mat-icon>
-        </button>
-        <mat-menu #userMenu="matMenu">
-          <button mat-menu-item (click)="logout()">
-            <mat-icon>logout</mat-icon>
-            <span>Logout</span>
-          </button>
+        <gel-button
+          hierarchy="secondary"
+          appearance="inverse"
+          size="md"
+          iconRight="keyboard_arrow_down"
+          [matMenuTriggerFor]="userMenu"
+          class="user-button">
+          {{ authService.userDisplayName() }}
+        </gel-button>
+        
+        <mat-menu #userMenu="matMenu" class="user-menu">
+          <gel-button
+            hierarchy="tertiary"
+            size="sm"
+            iconLeft="logout"
+            (click)="logout()"
+            class="menu-item">
+            Logout
+          </gel-button>
         </mat-menu>
+      </div>
+    </header>
+  `,
+  styles: [`
+    .global-header {
+      background-color: var(--mq-color-background-header-static);
+      color: var(--mq-color-text-primary-inverse-static);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--mq-space-m) var(--mq-space-2xl);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--mq-shadow-l1-0);
+    }
+    
+    .header-left {
+      display: flex;
+      align-items: center;
+    }
+    
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: var(--mq-space-s);
+    }
+    
+    .user-button {
+      color: var(--mq-color-text-primary-inverse-static);
+      border-color: transparent;
+    }
+    
+    .user-button:hover {
+      background-color: var(--mq-color-interactive-background-tertiary-hover);
+    }
+    
+    ::ng-deep .user-menu {
+      margin-top: var(--mq-space-s);
+    }
+    
+    ::ng-deep .user-menu .mat-mdc-menu-content {
+      padding: var(--mq-space-xs);
+    }
+    
+    .menu-item {
+      width: 100%;
+      justify-content: flex-start;
+      margin-bottom: var(--mq-space-2xs);
+    }
+    
+    .menu-item:last-child {
+      margin-bottom: 0;
+    }
+  `]
+})
+export class GlobalHeaderComponent {
+  readonly authService = inject(AuthService);
+  private router = inject(Router);
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+}
+
+// src/app/components/side-nav/side-nav.component.ts
+import { Component, signal, inject } from '@angular/core';
+import { Router } from '@angular/router';
+
+interface NavItem {
+  name: string;
+  icon: string;
+  enabled: boolean;
+  route?: string;
+}
+
+@Component({
+  selector: 'app-side-nav',
+  template: `
+    <nav class="side-nav">
+      <ul>
+        @for (item of navItems; track item.name) {
+          <li 
+            [class.enabled]="item.enabled"
+            [class.disabled]="!item.enabled"
+            [class.selected]="selectedItem() === item"
+            [class.hovered]="hoveredItem() === item && item.enabled"
+            (mouseenter)="onNavItemMouseEnter(item)"
+            (mouseleave)="onNavItemMouseLeave()"
+            (click)="onNavItemClick(item)">
+            
+            @if (item.enabled) {
+              <div class="nav-item-content">
+                <gel-icon 
+                  data-theme="dark" 
+                  [name]="item.icon" 
+                  size="md">
+                </gel-icon>
+                <gel-text 
+                  data-theme="dark" 
+                  size="s" 
+                  removeMargins="true">
+                  {{ item.name }}
+                </gel-text>
+              </div>
+            } @else {
+              <div class="nav-item-content">
+                <gel-icon 
+                  data-theme="dark" 
+                  [name]="item.icon" 
+                  size="md"
+                  appearance="disabled">
+                </gel-icon>
+                <gel-text 
+                  data-theme="dark" 
+                  size="s" 
+                  removeMargins="true"
+                  appearance="disabled">
+                  {{ item.name }}
+                </gel-text>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+      
+      <div class="site-status-container">
+        <div class="version-wrapper">
+          <gel-text size="s" appearance="disabled">v1.1.0</gel-text>
+        </div>
+      </div>
+    </nav>
+  `,
+  styles: [`
+    .side-nav {
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 64px;
+      width: 88px;
+      height: calc(100vh - 64px);
+      background: var(--mq-color-background-header-static);
+      overflow: visible;
+      text-align: center;
+      color: var(--mq-color-text-primary-inverse-static);
+      z-index: 100;
+    }
+    
+    .site-status-container {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--mq-space-xs);
+      justify-content: center;
+      padding-bottom: var(--mq-space-l);
+    }
+    
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    li {
+      cursor: pointer;
+      padding: 11.5px var(--mq-space-s);
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background-color 0.2s ease;
+    }
+    
+    .nav-item-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--mq-space-xs);
+    }
+    
+    li.selected {
+      background-color: var(--mq-color-brand-600);
+      color: var(--mq-color-text-primary-inverse-static);
+    }
+    
+    li.hovered {
+      background-color: var(--mq-color-interactive-background-tertiary-hover);
+    }
+    
+    li.disabled {
+      cursor: default;
+      opacity: 0.5;
+    }
+    
+    .version-wrapper {
+      display: flex;
+      justify-content: center;
+    }
+  `]
+})
+export class SideNavComponent {
+  private router = inject(Router);
+
+  // Signals for reactive navigation state
+  readonly selectedItem = signal<NavItem | null>(null);
+  readonly hoveredItem = signal<NavItem | null>(null);
+
+  readonly navItems: NavItem[] = [
+    { name: 'Activities', icon: 'assignment', enabled: false },
+    { name: 'Deals', icon: 'account_balance', enabled: true, route: '/dashboard/deals' },
+    { name: 'Covenants', icon: 'gavel', enabled: false },
+    { name: 'Deal Booking', icon: 'book', enabled: false },
+    { name: 'Documents', icon: 'description', enabled: false }
+  ];
+
+  constructor() {
+    // Set default selected item
+    this.selectedItem.set(this.navItems[1]); // Deals
+  }
+
+  onNavItemMouseEnter(item: NavItem): void {
+    if (item.enabled) {
+      this.hoveredItem.set(item);
+    }
+  }
+
+  onNavItemMouseLeave(): void {
+    this.hoveredItem.set(null);
+  }
+
+  onNavItemClick(item: NavItem): void {
+    if (item.enabled) {
+      this.selectedItem.set(item);
+      if (item.route) {
+        this.router.navigate([item.route]);
+      }
+    }
+  }
+}
+
+// src/app/components/dashboard/dashboard.component.ts
+import { Component, signal, inject } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { GlobalHeaderComponent } from '../global-header/global-header.component';
+import { SideNavComponent } from '../side-nav/side-nav.component';
+import { AddDealDrawerComponent } from '../add-deal-drawer/add-deal-drawer.component';
+import { Deal, DealService } from '../../services/deal.service';
+
+@Component({
+  selector: 'app-dashboard',
+  imports: [
+    RouterOutlet,
+    GlobalHeaderComponent,
+    SideNavComponent,
+    AddDealDrawerComponent
+  ],
+  template: `
+    <div class="dashboard-container">
+      <app-global-header></app-global-header>
+      
+      <div class="main-content">
+        <app-side-nav></app-side-nav>
+        
+        <div class="content-area">
+          <!-- Welcome Screen -->
+          <div class="welcome-section">
+            <h1>Welcome Screen (after you login) UI</h1>
+            
+            <div class="action-buttons">
+              <gel-text-input
+                placeholder="Search"
+                size="md"
+                class="search-field">
+              </gel-text-input>
+              
+              <gel-button 
+                hierarchy="primary" 
+                (click)="openAddDeal()">
+                Add
+              </gel-button>
+              
+              <gel-button 
+                hierarchy="secondary">
+                Remove
+              </gel-button>
+              
+              <gel-button 
+                hierarchy="primary"
+                appearance="success">
+                Approver Workflow
+              </gel-button>
+            </div>
+            
+            <!-- Deals Table -->
+            <div class="deals-section">
+              <h2>Deals</h2>
+              <gel-text size="s" class="deals-note">
+                Deals are clickable, and go to Deal Home Page UI
+              </gel-text>
+              
+              <gel-table size="md">
+                <gel-table-row slot="header">
+                  <gel-table-header heading="Deals"></gel-table-header>
+                  <gel-table-header heading="Facility"></gel-table-header>
+                  <gel-table-header heading="Industry"></gel-table-header>
+                  <gel-table-header heading="Type"></gel-table-header>
+                  <gel-table-header heading="Status"></gel-table-header>
+                </gel-table-row>
+                
+                @for (deal of dealService.deals(); track deal.id) {
+                  <gel-table-row 
+                    slot="body" 
+                    (click)="onDealClick(deal)"
+                    class="deal-row">
+                    <gel-table-cell>
+                      <div class="deal-cell">
+                        <gel-text size="m" class="deal-name">{{ deal.name }}</gel-text>
+                        <gel-text size="xs" class="deal-subtitle">{{ deal.shortNames }}</gel-text>
+                      </div>
+                    </gel-table-cell>
+                    <gel-table-cell>
+                      <gel-text size="m">{{ deal.facility }}</gel-text>
+                    </gel-table-cell>
+                    <gel-table-cell>
+                      <gel-text size="m">{{ deal.industry }}</gel-text>
+                    </gel-table-cell>
+                    <gel-table-cell>
+                      <gel-text size="m">{{ deal.type }}</gel-text>
+                    </gel-table-cell>
+                    <gel-table-cell>
+                      <gel-badge [label]="deal.status"></gel-badge>
+                    </gel-table-cell>
+                  </gel-table-row>
+                }
+              </gel-table>
+            </div>
+          </div>
+          
+          <!-- Child Route Content -->
+          <router-outlet />
+        </div>
+      </div>
+      
+      <!-- Add Deal Drawer -->
+      <app-add-deal-drawer 
+        [isOpen]="isAddDealOpen()"
+        (openChange)="onAddDealOpenChange($event)"
+        (dealAdded)="onDealAdded($event)">
+      </app-add-deal-drawer>
+    </div>
+  `,
+  styles: [`
+    .dashboard-container {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      background-color: var(--mq-color-grey-50);
+    }
+    
+    .main-content {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .content-area {
+      padding: var(--mq-space-xl);
+      overflow-y: auto;
+      background: var(--mq-color-grey-50);
+    }
+    
+    .welcome-section {
+      background: var(--mq-color-primary-white);
+      border-radius: var(--mq-border-radius-m);
+      padding: var(--mq-space-xl);
+      margin-bottom: var(--mq-space-xl);
+      box-shadow: var(--mq-shadow-l1-0);
+    }
+    
+    h1 {
+      font-size: 24px;
+      font-weight: 400;
+      margin-bottom: var(--mq-space-xl);
+      color: var(--mq-color-text-primary);
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: var(--mq-space-l);
+      align-items: center;
+      margin-bottom: var(--mq-space-2xl);
+      flex-wrap: wrap;
+    }
+    
+    .search-field {
+      min-width: 250px;
+    }
+    
+    .deals-section h2 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: var(--mq-space-s);
+      color: var(--mq-color-text-primary);
+    }
+    
+    .deals-note {
+      color: var(--mq-color-text-tertiary);
+      font-style: italic;
+      margin-bottom: var(--mq-space-l);
+    }
+    
+    .deal-row {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    
+    .deal-row:hover {
+      background-color: var(--mq-color-grey-100);
+    }
+    
+    .deal-cell {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mq-space-2xs);
+    }
+    
+    .deal-name {
+      color: var(--mq-color-text-brand);
+      font-weight: 500;
+    }
+    
+    .deal-subtitle {
+      color: var(--mq-color-text-tertiary);
+    }
+  `]
+})
+export class DashboardComponent {
+  readonly dealService = inject(DealService);
+
+  // Signal for drawer state
+  readonly isAddDealOpen = signal(false);
+
+  openAddDeal(): void {
+    this.isAddDealOpen.set(true);
+  }
+
+  onAddDealOpenChange(isOpen: boolean): void {
+    this.isAddDealOpen.set(isOpen);
+  }
+
+  onDealAdded(deal: Deal): void {
+    console.log('New deal added:', deal);
+    // Deal automatically added to service via signals
+  }
+
+  onDealClick(deal: Deal): void {
+    console.log('Deal clicked:', deal);
+    // TODO: Navigate to deal details page
+  }
+}
+
+// src/app/components/deals/deals.component.ts
+import { Component, signal, inject } from '@angular/core';
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { Deal, DealService } from '../../services/deal.service';
+
+@Component({
+  selector: 'app-deals',
+  imports: [CurrencyPipe, DatePipe],
+  template: `
+    <div class="deals-container">
+      <h1>Loan Activities</h1>
+      
+      <!-- Activity Cards -->
+      <div class="activity-cards">
+        <div class="activity-card">
+          <h3>Today</h3>
+          <gel-text size="s" class="activity-text">
+            No activities scheduled for today
+          </gel-text>
+        </div>
+        
+        <div class="activity-card">
+          <h3>Tomorrow</h3>
+          <gel-text size="s" class="activity-text">
+            No activities scheduled for tomorrow
+          </gel-text>
+        </div>
+        
+        <div class="activity-card">
+          <h3>Month End</h3>
+          <gel-text size="s" class="activity-text">
+            No month-end activities
+          </gel-text>
+        </div>
+        
+        <div class="activity-card">
+          <h3>Overdue</h3>
+          <gel-text size="s" class="activity-text">
+            No overdue activities
+          </gel-text>
+        </div>
+      </div>
+      
+      <!-- My Loans Section -->
+      <div class="my-loans-section">
+        <div class="section-header">
+          <h2>My Loans</h2>
+          <gel-text-input
+            placeholder="Search"
+            size="md"
+            [(ngModel)]="searchTerm()"
+            class="search-field">
+          </gel-text-input>
+        </div>
+        
+        <div class="loans-table-container">
+          <gel-table size="md">
+            <gel-table-row slot="header">
+              <gel-table-header heading="Date"></gel-table-header>
+              <gel-table-header heading="Status"></gel-table-header>
+              <gel-table-header heading="Automated"></gel-table-header>
+              <gel-table-header heading="Activity"></gel-table-header>
+              <gel-table-header heading="Deal"></gel-table-header>
+              <gel-table-header heading="Approver"></gel-table-header>
+              <gel-table-header heading="Borrower"></gel-table-header>
+              <gel-table-header heading="Facility"></gel-table-header>
+              <gel-table-header heading="Loan Alias"></gel-table-header>
+              <gel-table-header heading="CCY"></gel-table-header>
+              <gel-table-header heading="Tran Amount"></gel-table-header>
+              <gel-table-header heading="Host Bank"></gel-table-header>
+              <gel-table-header heading="Agent"></gel-table-header>
+            </gel-table-row>
+            
+            @for (deal of filteredDeals(); track deal.id) {
+              <gel-table-row slot="body">
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.createdDate | date:'shortDate' }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-badge [label]="deal.status"></gel-badge>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">-</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">-</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m" class="deal-link">{{ deal.name }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.agent }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.name }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.facility }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.shortNames }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">USD</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.facilityLimit | currency:'USD':'symbol':'1.0-0' }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.agent }}</gel-text>
+                </gel-table-cell>
+                <gel-table-cell>
+                  <gel-text size="m">{{ deal.agent }}</gel-text>
+                </gel-table-cell>
+              </gel-table-row>
+            } @empty {
+              <gel-table-row slot="body">
+                <gel-table-cell colspan="13" class="no-data-cell">
+                  <gel-text size="m" class="no-data-text">
+                    No loan activities found
+                  </gel-text>
+                </gel-table-cell>
+              </gel-table-row>
+            }
+          </gel-table>
+        </div>
+        
+        <div class="pagination-info">
+          <gel-text size="s" appearance="disabled">
+            {{ dealService.dealCount() }} of {{ dealService.dealCount() }}
+          </gel-text>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .deals-container {
+      padding: var(--mq-space-xl);
+      max-width: 100%;
+    }
+    
+    h1 {
+      font-size: 28px;
+      font-weight: 400;
+      margin-bottom: var(--mq-space-xl);
+      color: var(--mq-color-text-primary);
+    }
+    
+    .activity-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: var(--mq-space-l);
+      margin-bottom: var(--mq-space-2xl);
+    }
+    
+    .activity-card {
+      background: var(--mq-color-primary-white);
+      border-radius: var(--mq-border-radius-m);
+      padding: var(--mq-space-xl);
+      box-shadow: var(--mq-shadow-l1-0);
+      min-height: 120px;
+    }
+    
+    .activity-card h3 {
+      margin: 0 0 var(--mq-space-m) 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--mq-color-text-primary);
+    }
+    
+    .activity-text {
+      color: var(--mq-color-text-tertiary);
+    }
+    
+    .my-loans-section {
+      background: var(--mq-color-primary-white);
+      border-radius: var(--mq-border-radius-m);
+      box-shadow: var(--mq-shadow-l1-0);
+    }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--mq-space-l) var(--mq-space-xl);
+      border-bottom: 1px solid var(--mq-color-grey-200);
+    }
+    
+    .section-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--mq-color-text-primary);
+    }
+    
+    .search-field {
+      width: 300px;
+    }
+    
+    .loans-table-container {
+      min-height: 400px;
+      overflow-x: auto;
+    }
+    
+    .deal-link {
+      color: var(--mq-color-text-brand);
+      cursor: pointer;
+    }
+    
+    .deal-link:hover {
+      color: var(--mq-color-text-brand-hover);
+      text-decoration: underline;
+    }
+    
+    .no-data-cell {
+      text-align: center;
+      padding: var(--mq-space-2xl);
+    }
+    
+    .no-data-text {
+      color: var(--mq-color-text-tertiary);
+      font-style: italic;
+    }
+    
+    .pagination-info {
+      padding: var(--mq-space-l) var(--mq-space-xl);
+      text-align: right;
+      border-top: 1px solid var(--mq-color-grey-200);
+    }
+  `]
+})
+export class DealsComponent {
+  readonly dealService = inject(DealService);
+
+  // Signal for search functionality
+  readonly searchTerm = signal('');
+
+  // Computed signal for filtered deals
+  readonly filteredDeals = computed(() => {
+    const deals = this.dealService.deals();
+    const term = this.searchTerm().toLowerCase().trim();
+    
+    if (!term) return deals;
+    
+    return deals.filter(deal => 
+      deal.name.toLowerCase().includes(term) ||
+      deal.agent.toLowerCase().includes(term) ||
+      deal.facility.toLowerCase().includes(term) ||
+      deal.industry.toLowerCase().includes(term) ||
+      deal.shortNames.toLowerCase().includes(term)
+    );
+  });
+}
+
+// src/app/components/add-deal-drawer/add-deal-drawer.component.ts
+import { Component, signal, input, output, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { Deal, Contact, DealService } from '../../services/deal.service';
+import { ConfirmationDialogComponent } from '../confirmation-dialog/confirmation-dialog.component';
+
+@Component({
+  selector: 'app-add-deal-drawer',
+  imports: [FormsModule, MatSidenavModule, MatDialogModule],
+  template: `
+    <mat-sidenav-container class="drawer-container">
+      <mat-sidenav 
+        #drawer
+        position="end"
+        mode="over"
+        [opened]="isOpen()"
+        [disableClose]="false"
+        class="add-deal-drawer"
+        (openedChange)="handleOpenedChange($event)">
+        
+        <div class="drawer-header">
+          <h2>Add Deal UI</h2>
+          <gel-button 
+            hierarchy="secondary" 
+            size="sm" 
+            iconLeft="close"
+            (click)="close()">
+          </gel-button>
+        </div>
+        
+        <div class="drawer-content">
+          <gel-form name="deal-form" action="#" (ngSubmit)="onSubmit()" #dealForm="ngForm">
+            
+            <gel-form-item layout="vertical" label="Name">
+              <gel-text-input
+                name="name"
+                [(ngModel)]="deal.name"
+                required="true"
+                placeholder="Enter deal name"
+                [disabled]="isSubmitting()">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Logo">
+              <gel-text-input
+                name="logo"
+                [(ngModel)]="deal.logo"
+                placeholder="ability to download picture for logo"
+                [disabled]="isSubmitting()">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Facility Limit ($)">
+              <gel-text-input
+                name="facilityLimit"
+                inputType="number"
+                [(ngModel)]="deal.facilityLimit"
+                required="true"
+                placeholder="Enter facility limit"
+                [disabled]="isSubmitting()">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <div class="form-row">
+              <gel-form-item layout="vertical" label="Agent" class="agent-field">
+                <gel-text-input
+                  name="agent"
+                  [(ngModel)]="deal.agent"
+                  required="true"
+                  placeholder="Enter agent"
+                  [disabled]="isSubmitting()">
+                </gel-text-input>
+              </gel-form-item>
+              
+              <div class="prorate-section">
+                <gel-text size="s" class="prorate-label">Prorate Share</gel-text>
+                <gel-checkbox 
+                  label="Manual or Input from LoanIQ?"
+                  [(ngModel)]="prorateShare"
+                  name="prorateShare">
+                </gel-checkbox>
+              </div>
+            </div>
+            
+            <gel-form-item layout="vertical" label="Short Names">
+              <gel-text-input
+                name="shortNames"
+                [(ngModel)]="deal.shortNames"
+                required="true"
+                placeholder="This is the unique ID that is used in LoanIQ"
+                [disabled]="isSubmitting()">
+              </gel-text-input>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Facility">
+              <gel-dropdown 
+                [(ngModel)]="deal.facility"
+                name="facility"
+                label="Select facility type"
+                [disabled]="isSubmitting()">
+                <gel-dropdown-item id="Revolver" label="Revolver"></gel-dropdown-item>
+                <gel-dropdown-item id="Term Loan" label="Term Loan"></gel-dropdown-item>
+                <gel-dropdown-item id="Transactional" label="Transactional"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Industry">
+              <gel-dropdown 
+                [(ngModel)]="deal.industry"
+                name="industry"
+                label="Select industry"
+                [disabled]="isSubmitting()">
+                <gel-dropdown-item id="Energy" label="Energy"></gel-dropdown-item>
+                <gel-dropdown-item id="Metals" label="Metals"></gel-dropdown-item>
+                <gel-dropdown-item id="Technology" label="Technology"></gel-dropdown-item>
+                <gel-dropdown-item id="Healthcare" label="Healthcare"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Type">
+              <gel-dropdown 
+                [(ngModel)]="deal.type"
+                name="type"
+                label="Select type"
+                [disabled]="isSubmitting()">
+                <gel-dropdown-item id="Syndication" label="Syndication"></gel-dropdown-item>
+                <gel-dropdown-item id="Bilateral" label="Bilateral"></gel-dropdown-item>
+                <gel-dropdown-item id="Club Deal" label="Club Deal"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <gel-form-item layout="vertical" label="Status">
+              <gel-dropdown 
+                [(ngModel)]="deal.status"
+                name="status"
+                label="Select status"
+                [disabled]="isSubmitting()">
+                <gel-dropdown-item id="Lender" label="Lender"></gel-dropdown-item>
+                <gel-dropdown-item id="Agent" label="Agent"></gel-dropdown-item>
+                <gel-dropdown-item id="Participant" label="Participant"></gel-dropdown-item>
+              </gel-dropdown>
+            </gel-form-item>
+            
+            <div class="contacts-section">
+              <h3>Contacts</h3>
+              @for (contact of deal.contacts; track $index; let i = $index) {
+                <div class="contact-row">
+                  <gel-form-item layout="vertical" label="Name" class="contact-name">
+                    <gel-text-input
+                      [name]="'contactName' + i"
+                      [(ngModel)]="contact.name"
+                      [disabled]="isSubmitting()">
+                    </gel-text-input>
+                  </gel-form-item>
+                  
+                  <gel-form-item layout="vertical" label="Role" class="contact-role">
+                    <gel-text-input
+                      [name]="'contactRole' + i"
+                      [(ngModel)]="contact.role"
+                      [disabled]="isSubmitting()">
+                    </gel-text-input>
+                  </gel-form-item>
+                  
+                  @if (deal.contacts.length > 1) {
+                    <gel-button 
+                      hierarchy="secondary" 
+                      size="sm" 
+                      iconLeft="delete"
+                      [disabled]="isSubmitting()"
+                      (click)="removeContact(i)"
+                      class="remove-contact-btn">
+                    </gel-button>
+                  }
+                </div>
+              }
+              
+              <gel-button 
+                hierarchy="secondary" 
+                size="sm" 
+                iconLeft="add"
+                [disabled]="isSubmitting()"
+                (click)="addContact()"
+                class="add-contact-btn">
+                Add Contact
+              </gel-button>
+            </div>
+            
+            <gel-form-item layout="vertical" label="Company Description">
+              <textarea 
+                name="companyDescription"
+                [(ngModel)]="deal.companyDescription"
+                required
+                rows="4"
+                [disabled]="isSubmitting()"
+                placeholder="Enter company description"
+                class="company-description">
+              </textarea>
+            </gel-form-item>
+            
+            <div class="form-actions">
+              <gel-button 
+                hierarchy="primary"
+                size="lg"
+                [expand]="true"
+                [disabled]="!dealForm.valid || isSubmitting()"
+                type="submit">
+                @if (!isSubmitting()) {
+                  Submit
+                } @else {
+                  Submitting...
+                }
+              </gel-button>
+            </div>
+          </gel-form>
+        </div>
+      </mat-sidenav>
+    </mat-sidenav-container>
+  `,
+  styles: [`
+    :host {
+      display: block;
+      height: 100%;
+    }
+    
+    .drawer-container {
+      height: 100%;
+    }
+    
+    mat-sidenav {
+      width: 300px;
+      border-radius: 0 !important;
+    }
+    
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--mq-space-l) var(--mq-space-xl);
+      border-bottom: 1px solid var(--mq-color-grey-200);
+      background: var(--mq-color-primary-white);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .drawer-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--mq-color-text-primary);
+    }
+    
+    .drawer-content {
+      padding: var(--mq-space-xl);
+      overflow-y: auto;
+      height: calc(100% - 70px);
+    }
+    
+    gel-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--mq-space-l);
+    }
+    
+    .form-row {
+      display: flex;
+      gap: var(--mq-space-l);
+      align-items: flex-end;
+    }
+    
+    .agent-field {
+      flex: 2;
+    }
+    
+    .prorate-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--mq-space-xs);
+    }
+    
+    .prorate-label {
+      font-weight: 500;
+      color: var(--mq-color-text-primary);
+    }
+    
+    .contacts-section {
+      margin: var(--mq-space-l) 0;
+    }
+    
+    .contacts-section h3 {
+      margin: 0 0 var(--mq-space-l) 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--mq-color-text-primary);
+    }
+    
+    .contact-row {
+      display: flex;
+      gap: var(--mq-space-s);
+      align-items: flex-end;
+      margin-bottom: var(--mq-space-l);
+    }
+    
+    .contact-name {
+      flex: 2;
+    }
+    
+    .contact-role {
+      flex: 1;
+    }
+    
+    .remove-contact-btn {
+      margin-bottom: var(--mq-space-l);
+    }
+    
+    .add-contact-btn {
+      margin-top: var(--mq-space-s);
+    }
+    
+    .company-description {
+      width: 100%;
+      padding: var(--mq-space-s) var(--mq-space-m);
+      border: 1px solid var(--mq-color-grey-300);
+      border-radius: var(--mq-border-radius-s);
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--mq-color-text-primary);
+      resize: vertical;
+      min-height: 80px;
+      background: var(--mq-color-primary-white);
+    }
+    
+    .company-description:focus {
+      outline: none;
+      border-color: var(--mq-color-brand-500);
+      box-shadow: 0 0 0 2px var(--mq-color-brand-100);
+    }
+    
+    .company-description:disabled {
+      background: var(--mq-color-grey-100);
+      color: var(--mq-color-text-disabled);
+      cursor: not-allowed;
+    }
+    
+    .form-actions {
+      margin-top: var(--mq-space-xl);
+      padding-bottom: var(--mq-space-xl);
+    }
+  `]
+})
+export class AddDealDrawerComponent {
+  private dealService = inject(DealService);
+  private dialog = inject(MatDialog);
+
+  // Modern input/output signals
+  readonly isOpen = input<boolean>(false);
+  readonly openChange = output<boolean>();
+  readonly dealAdded = output<Deal>();
+
+  // Component state signals
+  readonly isSubmitting = signal(false);
+
+  // Form data (no need for signals for simple form fields)
+  deal: Deal = this.initializeDeal();
+  prorateShare = false;
+
+  initializeDeal(): Deal {
+    return {
+      name: '',
+      logo: '',
+      facilityLimit: 0,
+      agent: '',
+      shortNames: '',
+      facility: '',
+      industry: '',
+      type: '',
+      status: '',
+      companyDescription: '',
+      contacts: [{ name: '', role: '' }]
+    };
+  }
+
+  handleOpenedChange(opened: boolean): void {
+    if (!opened) {
+      this.close();
+    }
+  }
+
+  close(): void {
+    this.openChange.emit(false);
+    this.resetForm();
+  }
+
+  addContact(): void {
+    this.deal.contacts.push({ name: '', role: '' });
+  }
+
+  removeContact(index: number): void {
+    this.deal.contacts.splice(index, 1);
+  }
+
+  onSubmit(): void {
+    const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Confirm Deal Creation',
+        message: `Are you sure you want to create the deal "${this.deal.name}"?`,
+        confirmText: 'Create Deal',
+        cancelText: 'Cancel'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.submitDeal();
+      }
+    });
+  }
+
+  private submitDeal(): void {
+    this.isSubmitting.set(true);
+    
+    this.dealService.addDeal(this.deal).subscribe({
+      next: (newDeal) => {
+        this.isSubmitting.set(false);
+        this.dealAdded.emit(newDeal);
+        this.close();
+      },
+      error: (error) => {
+        this.isSubmitting.set(false);
+        console.error('Error creating deal:', error);
+      }
+    });
+  }
+
+  private resetForm(): void {
+    this.deal = this.initializeDeal();
+    this.prorateShare = false;
+    this.isSubmitting.set(false);
+  }
+}
+
+// src/app/components/confirmation-dialog/confirmation-dialog.component.ts
+import { Component, inject, SIGNAL } from '@angular/core';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+
+export interface ConfirmationDialogData {
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+}
+
+@Component({
+  selector: 'app-confirmation-dialog',
+  imports: [MatDialogModule],
+  template: `
+    <div class="dialog-container">
+      <h2 mat-dialog-title class="dialog-title">{{ data.title }}</h2>
+      
+      <div mat-dialog-content class="dialog-content">
+        <gel-text size="m">{{ data.message }}</gel-text>
+      </div>
+      
+      <div mat-dialog-actions class="dialog-actions">
+        <gel-button 
+          hierarchy="secondary" 
+          (click)="onCancel()">
+          {{ data.cancelText }}
+        </gel-button>
+        
+        <gel-button 
+          hierarchy="primary" 
+          (click)="onConfirm()">
+          {{ data.confirmText }}
+        </gel-button>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .dialog-container {
+      padding: var(--mq-space-l);
+    }
+    
+    .dialog-title {
+      margin: 0 0 var(--mq-space-l) 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--mq-color-text-primary);
+    }
+    
+    .dialog-content {
+      margin-bottom: var(--mq-space-xl);
+      color: var(--mq-color-text-secondary);
+    }
+    
+    .dialog-actions {
+      display: flex;
+      gap: var(--mq-space-m);
+      justify-content: flex-end;
+      margin: 0;
+      padding: 0;
+    }
+  `]
+})
+export class ConfirmationDialogComponent {
+  readonly dialogRef = inject(MatDialogRef<ConfirmationDialogComponent>);
+  readonly data = inject<ConfirmationDialogData>(MAT_DIALOG_DATA);
+
+  onCancel(): void {
+    this.dialogRef.close(false);
+  }
+
+  onConfirm(): void {
+    this.dialogRef.close(true);
+  }
+}
+
+// src/styles.scss
+/* Design System Styles - Using GEL Library Variables */
+html, body { 
+  height: 100%; 
+  margin: 0; 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  background-color: var(--mq-color-grey-50);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Fix for Material sidenav overlay */
+.cdk-overlay-container {
+  z-index: 1000;
+}
+
+.cdk-global-overlay-wrapper {
+  z-index: 1000;
+}
+
+/* Material Dialog overrides */
+.mat-mdc-dialog-container {
+  --mdc-dialog-container-shape: var(--mq-border-radius-m);
+  box-shadow: var(--mq-shadow-l4-0);
+}
+
+.mat-mdc-dialog-surface {
+  border-radius: var(--mq-border-radius-m);
+}
+
+/* Hide Material button ripples for cleaner GEL appearance */
+.mat-mdc-button .mat-mdc-button-ripple,
+.mat-mdc-raised-button .mat-mdc-button-ripple {
+  display: none;
+}
+
+/* Material Menu styling to match GEL theme */
+.mat-mdc-menu-panel {
+  border-radius: var(--mq-border-radius-s);
+  box-shadow: var(--mq-shadow-l3-0);
+}
+
+/* Focus styles */
+.mat-mdc-button:focus-visible,
+.mat-mdc-raised-button:focus-visible {
+  outline: 2px solid var(--mq-color-brand-500);
+  outline-offset: 2px;
+}
+
+/* Sidenav styling */
+.mat-drawer-backdrop.mat-drawer-shown {
+  background-color: var(--mq-color-primary-black-25);
+}
+
+.mat-drawer {
+  box-shadow: var(--mq-shadow-l4-0);
+}
+
+/* Form validation styles */
+.ng-invalid.ng-touched {
+  border-color: var(--mq-color-text-negative);
+}
+
+.ng-valid.ng-touched {
+  border-color: var(--mq-color-text-positive);
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--mq-color-grey-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mq-color-grey-400);
+  border-radius: var(--mq-border-radius-xs);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--mq-color-grey-500);
+}
+
